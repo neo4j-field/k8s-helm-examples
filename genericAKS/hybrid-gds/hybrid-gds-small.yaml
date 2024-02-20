@@ -32,14 +32,14 @@ podSpec:
   loadbalancer: "exclude"
 
 env:
-  NEO4J_PLUGINS: '["apoc", "bloom", "graph-data-science"]'
+  NEO4J_PLUGINS: '["apoc", "graph-data-science", "bloom"]'
 
 config:
   server.backup.enabled: "true"
   server.config.strict_validation: "false"
   db.logs.query.enabled: "OFF"
-  gds.enterprise.license_file: "/licenses/local/gds.license"
   dbms.routing.enabled: "true"
+  gds.enterprise.license_file: "/licenses/local/gds.license"
   dbms.bloom.license_file: "/licenses/local/bloom.license"
   dbms.security.procedures.unrestricted: "apoc.*,bloom.*,gds.*"
   dbms.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
@@ -49,9 +49,11 @@ config:
   server.memory.heap.max_size: "5G"
   server.memory.pagecache.size: "1500M"
   server.directories.transaction.logs.root: /transactions
+  db.tx_log.rotation.retention_policy: "1 hours"
   initial.server.mode_constraint: "SECONDARY"
   server.cluster.system_database_mode: "SECONDARY"
-  db.tx_log.rotation.retention_policy: "1 hours"
+  initial.dbms.default_primaries_count: "3"
+  initial.dbms.automatically_enable_free_servers: "true"
   initial.server.tags: "gds"
 
 apoc_config:
