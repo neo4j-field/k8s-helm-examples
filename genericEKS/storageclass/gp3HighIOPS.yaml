@@ -1,0 +1,16 @@
+kind: StorageClass
+#for high volume databases example of good and fast ebs gp3
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: gp3highiops
+provisioner: ebs.csi.aws.com
+#provisioner: kubernetes/aws-ebs
+parameters:
+  type: gp3
+  iops: "16000"
+  throughput: "1000"
+  csi.storage.k8s.io/fstype: xfs
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+#wait for First Consumer because we need the data to be in the same AZ as the pod
+volumeBindingMode: WaitForFirstConsumer

@@ -1,0 +1,11 @@
+FROM neo4j:5.14.0-enterprise
+RUN apt-get update    \
+&& apt-get install -y zip unzip awscli curl wget sysstat python3 vim-tiny nfs-common
+RUN wget https://bloom-plugins.s3.eu-west-2.amazonaws.com/bloom-plugin-5.x-2.11.0.jar -O /tmp/bloom.jar \
+    && cp /tmp/bloom.jar /var/lib/neo4j/plugins/
+RUN wget https://graphdatascience.ninja/neo4j-graph-data-science-2.5.5.jar -O /tmp/gds.jar \
+     && cp /tmp/gds.jar /var/lib/neo4j/plugins/
+
+RUN wget https://github.com/neo4j-contrib/neo4j-apoc-procedures/releases/download/5.14.0/apoc-5.14.0-extended.jar -O /tmp/apoc-extended.jar \
+    && cp /tmp/apoc-extended.jar /var/lib/neo4j/plugins/
+RUN cp /var/lib/neo4j/labs/apoc-* /var/lib/neo4j/plugins

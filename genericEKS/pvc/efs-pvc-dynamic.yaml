@@ -1,0 +1,12 @@
+apiVersion: v1
+#Followed the dynamic example in the EKSCTL github examples
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-efs-dynamic
+spec:
+  storageClassName: sc-efs-dynamic
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi

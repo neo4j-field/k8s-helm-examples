@@ -1,0 +1,19 @@
+kind: StorageClass
+#Example of shared EFS mount - use for import mount - not data or transactions
+#Follows example in eksctl github for efs dynamic
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: sc-efs-dynamic
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: "efs-ap"
+  fileSystemId: "fs-0fbbd8f2d65d482d7"
+  directoryPerms: "755"
+  uid: "7474"
+  gid: "7474"
+  gidRangeStart: "7000" # optional
+  gidRangeEnd: "8000" # optional
+  basePath: "/dynamic_provisioning" # optional
+  #gidRangeStart: "1000" # optional
+  #gidRangeEnd: "2000" # optional
+  #basePath: "/data" # optional

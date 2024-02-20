@@ -1,0 +1,96 @@
+
+#image:
+#  imagePullPolicy: "Always"
+  #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-aeb281g240-5.9.0-enterprise-arm"
+#  customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb211g254-5.13.0-enterprise-arm"
+  #If a custom domain is in use
+#clusterDomain: "neo4j.cluster.local"
+
+neo4j:
+  name: "playsmall"
+  resources:
+    cpu: 1.5
+    memory: "7G"
+  # Uncomment to set the initial password
+  password: "my-password"
+  #passwordFromSecret: "neo4jpwd"
+  offlineMaintenanceModeEnabled: false
+  # Uncomment to use enterprise edition
+  edition: "enterprise"
+  acceptLicenseAgreement: "yes"
+  minimumClusterSize: "3"
+
+nodeSelector:
+  nodegroup: "playsmall"
+
+services:
+  neo4j:
+    # Do not create the LB
+    enabled: false
+
+podSpec:
+  loadbalancer: "exclude"
+
+env:
+  NEO4J_PLUGINS: '["apoc", "bloom", "graph-data-science"]'
+
+config:
+  server.backup.enabled: "true"
+  server.config.strict_validation: "false"
+  db.logs.query.enabled: "OFF"
+  gds.enterprise.license_file: "/licenses/local/gds.license"
+  dbms.routing.enabled: "true"
+  dbms.bloom.license_file: "/licenses/local/bloom.license"
+  dbms.security.procedures.unrestricted: "apoc.*,bloom.*,gds.*"
+  dbms.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
+  dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
+  server.directories.plugins: "/var/lib/neo4j/plugins"
+  server.memory.heap.initial_size: "5G"
+  server.memory.heap.max_size: "5G"
+  server.memory.pagecache.size: "1500M"
+  server.directories.transaction.logs.root: /transactions
+  initial.server.mode_constraint: "SECONDARY"
+  server.cluster.system_database_mode: "SECONDARY"
+  db.tx_log.rotation.retention_policy: "1 hours"
+  initial.server.tags: "gds"
+
+apoc_config:
+  apoc.export.file.enabled: "true"
+  apoc.import.file.enabled: "true"
+  apoc.trigger.enabled: "true"
+
+additionalVolumeMounts:
+  - name: license-keys
+    mountPath: /licenses/local
+    readOnly: true
+
+additionalVolumes:
+  - name: license-keys
+    configMap:
+      name: license-config
+
+volumes:
+  data:
+    mode: "dynamic"
+    dynamic:
+      # * managed-csi-premium provisions premium SSD disks (recommended)
+      # * managed-csi provisions standard SSD backed disks
+      storageClassName: managed-csi-premium
+      requests:
+        storage: 100Gi
+  transactions:
+    mode: "dynamic"
+    dynamic:
+      # * managed-csi-premium provisions premium SSD disks (recommended)
+      # * managed-csi provisions standard SSD backed disks
+      storageClassName: managed-csi-premium
+      accessModes:
+        - ReadWriteOnce
+      requests:
+        storage: 100Gi
+#  import:
+#    mode: volume
+#    volume:
+#      setOwnerAndGroupWritableFilePermissions: true
+#      persistentVolumeClaim:
+#        claimName: pvc-fs-dynamic

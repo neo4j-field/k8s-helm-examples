@@ -1,0 +1,21 @@
+neo4j:
+  name: jsh-cluster
+  resources:
+    cpu: "1"
+    memory: "2Gi"
+  minimumClusterSize: 3
+
+  # Uncomment to set the initial password
+  password: "my-password"
+
+  # Uncomment to use enterprise edition
+  edition: "enterprise"
+  acceptLicenseAgreement: "yes"
+
+volumes:
+  data:
+    mode: "dynamic"
+    dynamic:
+      # * managed-csi-premium provisions premium SSD disks (recommended)
+      # * managed-csi provisions standard SSD backed disks
+      storageClassName: managed-csi-premium

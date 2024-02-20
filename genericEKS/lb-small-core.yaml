@@ -1,0 +1,46 @@
+apiVersion: v1
+# This is the primary load balancer - serves the 3 core members
+# This requires the following in the nodepool definition of eksctl yaml
+#   iam:
+#     withAddonPolicies:
+#        ebs: true
+#        efs: true
+#        awsLoadBalancerController: true
+kind: Service
+metadata:
+  annotations:
+    # requires awsLoadBalancerController: true
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    # the next line is for internal pointing (VPC) load balancer 
+    #service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    #below not needed
+    #service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, 7687
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: YOUR ACM ARN GOES HERE
+    #only if you want the load balancer to continue to hit the same destination per client (sticky)
+    #service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
+
+  labels:
+    #app: hybridgds
+    eks.amazonaws.com/nodetype: "primary"
+  name: playsmall-core-lb
+  namespace: "efs"
+spec:
+  #loadBalancerIP: 10.151.8.87
+  externalTrafficPolicy: Local
+  ports:
+  - name: bolt
+    port: 7687
+    protocol: TCP
+    targetPort: 7687
+  - name: http
+    port: 443
+    protocol: TCP
+    targetPort: 7474
+  selector:
+    eks.amazonaws.com/nodetype: "primary"
+    app: playsmall
+  sessionAffinity: None
+  type: LoadBalancer

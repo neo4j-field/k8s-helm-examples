@@ -1,0 +1,180 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: drose-cluster2
+  tags: {Department: my-dept}
+  region: us-east-2
+  version: "1.27"
+
+
+kubernetesNetworkConfig:
+  ipFamily: IPv4 # or IPv6
+
+addons:
+  - name: vpc-cni
+    version: latest
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+  - name: aws-ebs-csi-driver
+  # - name: aws-efs-csi-driver
+
+iam:
+  withOIDC: true
+
+vpc:
+  cidr: 10.10.0.0/16
+  clusterEndpoints:
+    publicAccess: true
+    privateAccess: true
+
+managedNodeGroups:
+  - name: minimal
+    instanceType: t3a.medium
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 4
+    minSize: 1
+    maxSize: 7
+    labels: {role: eks-8xl}
+    tags:
+      {Department: my-dept}
+    volumeSize: 100
+    availabilityZones: ["us-east-2a", "us-east-2b", "us-east-2c"]
+    ssh:
+      allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+      publicKeyName: daviddept2
+  - name: hybridgds
+    instanceType: r6a.8xlarge
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 3
+    minSize: 1
+    maxSize: 7
+    labels: {role: eks-m6axl}
+    tags:
+      {Department: my-dept}
+    volumeSize: 100
+    availabilityZones: ["us-east-2a", "us-east-2b", "us-east-2c"]
+    ssh:
+      allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+      publicKeyName: daviddept2
+  - name: hybridgdsarm
+    instanceType: r7g.8xlarge
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 3
+    minSize: 1
+    maxSize: 7
+    labels: {role: eks-m6axl}
+    tags:
+      {Department: my-dept}
+    volumeSize: 100
+    availabilityZones: ["us-east-2a", "us-east-2b", "us-east-2c"]
+    ssh:
+      allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+      publicKeyName: daviddept2    
+  - name: gdslarge
+    instanceType: r6i.16xlarge
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 4
+    labels: {role: eks-m6axl}
+    tags:
+      {Department: my-dept}
+    volumeSize: 100
+    availabilityZones: ["us-east-2a", "us-east-2c"]
+    ssh:
+      allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+      publicKeyName: daviddept2
+  - name: gdslargearm
+    instanceType: r6g.12xlarge
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 4
+    labels: {role: eks-m6axl}
+    tags:
+      {Department: my-dept}
+    volumeSize: 100
+    availabilityZones: ["us-east-2a", "us-east-2c"]
+    ssh:
+      allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+      publicKeyName: daviddept2
+  - name: gdstraining
+    instanceType: r7g.4xlarge
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 3
+    labels: {role: eks-m6axl}
+    tags:
+      {Department: gdstraining}
+    volumeSize: 100
+    availabilityZones: ["us-east-2c"]
+    ssh:
+      allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+      publicKeyName: daviddept2
+  - name: playsmall
+    instanceType: m7g.large
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 5
+    minSize: 1
+    maxSize: 6
+    labels: {role: eks-m6axl}
+    tags:
+      {Department: my-dept}
+    volumeSize: 100
+    availabilityZones: ["us-east-2a", "us-east-2c"]
+    ssh:
+      allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+      publicKeyName: daviddept2
