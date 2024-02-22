@@ -1,6 +1,16 @@
 # AKS deployment examples
 
-## Neo4j 3 node cluster within 1 AKS cluster (neo4j-core-cluster.yaml)
+## Pre-requisites
+- Verify that you have a Resource Group
+    - ```az group create --name jhair-RG```
+- Set defaults
+    - ```az configure --defaults group=jhair-RG```
+    - ```az configure --defaults location=eastus```
+- List defaults
+    - ```az configure -l```
+
+
+## [Neo4j 3 node cluster within 1 AKS cluster](neo4j-core-cluster.yaml)
 Neo4j docs - https://neo4j.com/docs/operations-manual/current/kubernetes/quickstart-cluster/
 ### Pre-req:
 - Azure resource group exists
@@ -27,12 +37,12 @@ az aks delete --name neo4j-aks-cluster  --resource-group jhair-RG
 ```
 
 
-## [3 Primary/node hybrid cluster with 1 Secondary/GDS (3 primary nodes, 1 secondary/GDS)](./hybrid-gds/)
+## [3 Primary/node hybrid cluster with 1 Secondary/GDS (3 primary nodes, 1 secondary/GDS)](./hybrid-gds/README.md)
 ### Pre-req:
 - Azure resource group exists
 
 ### Create the cluster
-Execute ./scripts/startall.sh
+Execute ```./scripts/startall.sh```
 The script will perform the following:
 - Create an AKS cluster (e.g. neo4j-aks-cluster)
 - Create a namespace within the AKS cluster (e.g. neo4j-hybrid)
@@ -43,7 +53,7 @@ The script will perform the following:
 ### Cleanup
 Execute ./scripts/stopall.sh
 
-## [Deploy a single Neo4j cluster across multiple AKS clusters](./neo4j-cluster-across-multiple-AKS/)
+## [Deploy a single Neo4j cluster across multiple AKS clusters](./neo4j-cluster-across-multiple-AKS/README.md)
 Neo4j docs - https://neo4j.com/docs/operations-manual/current/kubernetes/multi-dc-cluster/aks/
 ### Pre-req:
 - Azure resource group exists
