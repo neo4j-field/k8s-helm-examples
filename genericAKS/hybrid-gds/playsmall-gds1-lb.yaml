@@ -5,8 +5,7 @@ metadata:
   #namespace: "efs"
 
   labels:
-    #app: hybridgds
-    helm.neo4j.com/instance: playsmall-gds-1
+    app: hybridgds
 
   annotations:
     #service.beta.kubernetes.io/aws-load-balancer-type: nlb
