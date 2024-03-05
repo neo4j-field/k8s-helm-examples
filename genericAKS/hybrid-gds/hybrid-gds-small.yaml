@@ -39,6 +39,7 @@ config:
   server.config.strict_validation: "false"
   db.logs.query.enabled: "OFF"
   dbms.routing.enabled: "true"
+  dbms.routing.default_router: SERVER
   gds.enterprise.license_file: "/licenses/local/gds.license"
   dbms.bloom.license_file: "/licenses/local/bloom.license"
   dbms.security.procedures.unrestricted: "apoc.*,bloom.*,gds.*"
