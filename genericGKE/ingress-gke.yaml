@@ -1,0 +1,10 @@
+reverseProxy:
+    serviceName: "standalone-admin"
+    ingress:
+        enabled: true
+        tls:
+            enabled: true
+            config:
+                - secretName: ingress-cert
+                  hosts:
+                    - localhost

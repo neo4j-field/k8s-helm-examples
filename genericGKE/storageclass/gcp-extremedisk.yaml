@@ -1,7 +1,7 @@
   apiVersion: storage.k8s.io/v1
   kind: StorageClass
   metadata:
-    name: ssd-highiops
+    name: neo4j-ssd-highiops
   provisioner: pd.csi.storage.gke.io
   volumeBindingMode: WaitForFirstConsumer
   allowVolumeExpansion: true

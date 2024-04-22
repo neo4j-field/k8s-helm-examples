@@ -1,14 +1,13 @@
-# This are an example of a Neo4j Hybrid GDS Cluster
-
+# This are example of a Neo4j Standalone and Cluster
+- 1 standalone Neo4j
 - 3 core primary Neo4j members
-- 2 secondary Neo4j GDS members
-- Load balancers terminate TLS and do TCP to Neo4j
-- 1 load balancer for each GDS members - this is needed as GDS calls are done on a non-routing bolt connection
-- 1 load balancer for the Core primary members.
-- Examples of a basic start and stop of the nodepools are in restart folder along with the helm commands needed.
-- We leave load balancers running so IP addresses don't change and wreck the certs (I don't have DNS setup)
-- Rudimentary docker files are present 
-  - axb-debug is for core (no gds) 
-  - axbg-debug is for secondary GDS - you can remove the extra installs for production
-- Docker build command (this is ARM64, you can do AMD64 )
-`docker buildx build --platform linux/arm64 -t <subscription>.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb2110g255-5.14.0-enterprise-arm --push axbg-debug/.`
+
+- GKE Load balancers do not have annotations to terminate at the LB
+  - https://cloud.google.com/kubernetes-engine/docs/concepts/service-load-balancer-parameters
+- Examples of a basic start and stop are in restart folder along with the helm commands needed.
+- Example of Neo4j Reverse Proxy
+- Rudimentary docker files are present - these are used in the cluster creation
+  - axb-debug is apoc, extended and bloom
+  - axbg-debug is apoc, extened, bloom and GDS
+- Docker build command (this is AMD64, you can do ARM64 )
+docker buildx build --platform linux/amd64 -t us-central1-docker.pkg.dev/neo4j-se-team-201905/rosenblum-test/neo4j-axeb2110g265:enterprise-amd-5.19.0 --push axb-debug/.
