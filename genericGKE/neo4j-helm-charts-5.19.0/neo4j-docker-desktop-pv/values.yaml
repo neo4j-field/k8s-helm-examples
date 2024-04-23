@@ -1,0 +1,14 @@
+# Default values for Neo4j Disk for Docker Desktop.
+
+neo4j:
+  name: ""
+
+# size of disk used by K8s when scheduling and binding, this has to be passed explicitly to K8s, it's not capable of figuring this out for itself.
+capacity:
+  storage: ""
+
+# Host path should be an absolute path to a directory on the host machine that is shared with Docker Desktop
+# the directory must exist, it will not be created automatically.
+# e.g.
+#   hostPath: /Users/my_username/neo4j/disk1
+hostPath: ""

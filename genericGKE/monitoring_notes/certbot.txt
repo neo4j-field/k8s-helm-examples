@@ -27,3 +27,22 @@ helm install \
   --version v1.14.4 \
   # --set installCRDs=true
 kubectl -n cert-manager get all
+
+ERROR: 
+create Pod standalone-0 in StatefulSet standalone failed error: admission webhook "validation.gatekeeper.sh" denied the request: [vzec-psp-allowprivilegeescalationcontainer] Privilege escalation container is not allowed: neo4j [vzsec-psp-capabilities] container <neo4j> is not dropping all required capabilities. Container must drop all of ["ALL"] or "ALL" [vzsec-psp-readonlyrootfilesystem] only read-only root filesystem container is allowed: neo4j
+If set allowPrivilegeEscalation: false
+we only get read-only root and 
+create Pod standalone-0 in StatefulSet standalone failed error: admission webhook "validation.gatekeeper.sh" denied the request: [vzsec-psp-capabilities] container <neo4j> is not dropping all required capabilities. Container must drop all of ["ALL"] or "ALL" [vzsec-psp-readonlyrootfilesystem] only read-only root filesystem container is allowed: neo4j
+
+
+# securityContext defines privilege and access control settings for a Pod. Making sure that we dont run Neo4j as root user.
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 7474
+  runAsGroup: 7474
+  fsGroup: 7474
+  fsGroupChangePolicy: "Always"
+ allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
