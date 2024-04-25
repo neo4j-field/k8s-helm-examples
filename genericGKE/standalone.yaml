@@ -1,4 +1,10 @@
-
+#Example of creating a Neo4j Instance with a Read Only Root  
+# Run as Non-Root (neo4j default)
+# Drop all Capabilities
+# We have created a docker image that has all the plugins in place
+# This eliminates the need for the file movements caused using env or plugins
+# env: 
+#    NEO4J_PLUGINS: '["bloom", "apoc"]'
 image:
   imagePullPolicy: "Always"
   #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-aeb281-5.9.0-enterprise-arm"
@@ -22,11 +28,31 @@ neo4j:
 
 #Optional - nodeselector
 # nodeSelector:
-#   someLabel: "playsmall"
+#   someLabel: "someNodePool"
 
+# Create LB in separate manifest
 services:
   neo4j:
     enabled: false
+
+# This ths Pod Security Context We only need to change user or group if a particular user or group is needed
+securityContext:
+  runAsUser: 7474
+  runAsGroup: 7474
+  fsGroup: 7474
+  fsGroupChangePolicy: "Always"
+
+# securityContext defines privilege and access control settings for a Container. Making sure that we dont run Neo4j as root user.
+# See note below regarding mounts
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 7474
+  runAsGroup: 7474
+  capabilities:
+    drop:
+    - ALL
 
 config:
   server.backup.enabled: "true"
@@ -57,16 +83,42 @@ apoc_config:
 # Only if a custom domain is in use
 #  causal_clustering.kubernetes.cluster_domain: "neo4j.cluster.local"
 
+#In order to do read only root the following must be mounted somewhere else that is writable
+# /var/lib/neo4j/conf
+# /config
+# /var/lib/neo4j/.neo4j
+# /tmp
+# /metrics
+# We use additionalVolumes and additionalVolumeMounts
+# This allows arbitrary volumes and mounts that perhaps are not
+# supported by the volumes section of the chart
 
 additionalVolumeMounts:
+  # This is to map the license configmap
   - name: license-keys
     mountPath: /licenses/local
     readOnly: true
+  - name: neo4j1-conf
+    mountPath: "/var/lib/neo4j/conf"
+  - name: neo4j2-conf
+    mountPath: "/config"
+  - name: neo4j-cypher-history
+    mountPath: "/var/lib/neo4j/.neo4j"
 
+# emptyDir maps to tempfs
 additionalVolumes:
   - name: license-keys
     configMap:
       name: license-config
+  - name: neo4j1-conf
+    emptyDir: 
+      sizeLimit: 10Mi
+  - name: neo4j2-conf
+    emptyDir: 
+      sizeLimit: 10Mi
+  - name: neo4j-cypher-history
+    emptyDir: 
+      sizeLimit: 50Mi
 
 volumes:
   data:
@@ -75,6 +127,22 @@ volumes:
       storageClassName: "neo4j-ssd"
       requests:
         storage: 50Gi
+  tmp:
+    mode: "dynamic"
+    dynamic:
+      storageClassName: "neo4j-ssd"
+      accessModes: 
+      - ReadWriteOnce
+      requests:
+        storage: 50Gi
+  metrics: 
+    mode: "dynamic"
+    dynamic:
+      storageClassName: "neo4j-ssd"
+      accessModes: 
+      - ReadWriteOnce
+      requests:
+        storage: 10Gi
   # optional - create mount for import 
   transactions:
       mode: "dynamic"

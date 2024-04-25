@@ -1,12 +1,13 @@
 # This are example of a Neo4j Standalone and Cluster
 - 1 standalone Neo4j
+  - This example shows a read-only root configuration.  Some of this might be over-the-top
 - 3 core primary Neo4j members
 
 - GKE Load balancers do not have annotations to terminate at the LB
   - https://cloud.google.com/kubernetes-engine/docs/concepts/service-load-balancer-parameters
 - Examples of a basic start and stop are in restart folder along with the helm commands needed.
 - Example of Neo4j Reverse Proxy
-- Rudimentary docker files are present - these are used in the cluster creation
+- Rudimentary docker files are present - these are used in the Neo4j cluster creation 
   - axb-debug is apoc, extended and bloom
   - axbg-debug is apoc, extened, bloom and GDS
 - Docker build command (this is AMD64, you can do ARM64 )
