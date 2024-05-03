@@ -10,8 +10,8 @@ helm uninstall playsmall-gds-1
 
 # Delete load balancer
 echo "Deleting load balancers..."
-kubectl delete -f playsmall-lb.yaml
-kubectl delete -f playsmall-gds1-lb.yaml
+kubectl delete -f playsmall-lb.yaml --wait=false
+kubectl delete -f playsmall-gds1-lb.yaml --wait=false
 
 #echo Delete/cleanup pods for core members
 #kubectl get pods -o=name | awk '/playsmall[0-9]-cleanup/{print $1}'| xargs kubectl delete -n efs 
@@ -31,3 +31,6 @@ echo "Deleting AKS cluster..."
 az aks delete --name neo4j-aks-hybrid-cluster --yes
 
 #echo "The AKS cluster will be deleted in several minutes"
+
+# Remove backup cron job
+#helm uninstall jhair-backup
