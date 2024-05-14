@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+    #below is my us-east-2a private subnet
+    service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-0c0249d8f4cd53f2f"
+    # service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    # #service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, 7687
+    # service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    # service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-2:766746056086:certificate/8781b4f1-e8b1-4d0b-ab05-1fe0523e527a
+    # #service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
+
+  labels:
+    #app: hybridgds
+    helm.neo4j.com/instance: multi3
+    #eks.amazonaws.com/nodetype: "primary"
+  name: multi1c-internal-2c-1
+  namespace: "neo4j"
+spec:
+  #loadBalancerIP: 10.10.160.201
+  # Did not respect this IP ^^ perhaps annotationation?
+  externalTrafficPolicy: Local
+  publishNotReadyAddresses: true
+  ports:
+  - name: bolt
+    port: 7687
+    protocol: TCP
+    targetPort: 7687
+  - name: http
+    port: 7474
+    protocol: TCP
+    targetPort: 7474
+  - name: ssr
+    port: 7688
+    protocol: TCP
+    targetPort: 7688
+  - name: raft 
+    port: 5000
+    protocol: TCP
+    targetPort: 5000  
+  - name: raft-disc 
+    port: 6000
+    protocol: TCP
+    targetPort: 6000
+  - name: raft-tx
+    port: 7000
+    protocol: TCP
+    targetPort: 7000      
+  selector:
+    #eks.amazonaws.com/nodetype: "primary"
+    helm.neo4j.com/instance: multi3
+    #app: playsmall
+  sessionAffinity: None
+  type: LoadBalancer

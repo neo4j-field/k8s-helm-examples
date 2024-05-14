@@ -2,7 +2,7 @@ kind: StorageClass
 #standard gp3 storage class - use for logs mount or all for a in memory or low to medium write volume
 apiVersion: storage.k8s.io/v1
 metadata:
-  name: aws-gp3-xfs
+  name: neo4j-ssd
 provisioner: ebs.csi.aws.com
 #provisioner: kubernetes/aws-ebs
 parameters:
