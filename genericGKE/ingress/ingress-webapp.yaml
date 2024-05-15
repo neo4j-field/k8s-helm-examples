@@ -10,11 +10,11 @@ metadata:
     # This enables HTTP connections from Internet clients
     kubernetes.io/ingress.allow-http: "true"
     # This tells Google Cloud to associate the External Load Balancer with the static IP which we created earlier
-    kubernetes.io/ingress.global-static-ip-name: drose-vz-ip
+    kubernetes.io/ingress.global-static-ip-name: your-static-ip
 spec:
   tls:
     - hosts:
-      - www.iclinicalgraph.com
+      - www.yourhost.com
       secretName: letsencrypt-staging
   defaultBackend:
     service:
