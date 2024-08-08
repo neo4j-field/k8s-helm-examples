@@ -29,12 +29,12 @@ kubectl delete -f playsmall-gds1-lb.yaml --wait=false
 #sleep 30
 
 # Azure CLI to delete the nodepool
-echo "Deleting nodepool..."
+echo "Deleting nodepool (${AKS_NODEPOOL_NAME}) from the cluster (${AKS_CLUSTER_NAME})..."
 az aks nodepool delete --cluster-name ${AKS_CLUSTER_NAME}  --nodepool-name ${AKS_NODEPOOL_NAME} --no-wait
 
 #echo "Deleting AKS cluster (not waiting)..."
 #az aks delete --name neo4j-aks-hybrid-cluster --no-wait --yes
-echo "Deleting AKS cluster..."
+echo "Deleting AKS cluster (${AKS_CLUSTER_NAME})..."
 az aks delete --name ${AKS_CLUSTER_NAME} --yes
 
 #echo "The AKS cluster will be deleted in several minutes"
