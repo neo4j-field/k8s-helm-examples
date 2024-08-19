@@ -1,14 +1,23 @@
-# This are example of a Neo4j Standalone and Cluster
-- 1 standalone Neo4j
-  - This example shows a read-only root configuration.  Some of this might be over-the-top
-- 3 core primary Neo4j members
+# Single, standalone Neo4j instance
+  - Basic start and stop scripts are in [scripts](./scripts) folder along with the helm commands needed.
+    - start: ```helm upgrade -i standalone  neo4j/neo4j -f standalone.yaml```
+    - stop: ```helm uninstall standalone```
+  - Uses a custom image vs the default Neo4j image.
+    - The custom docker image shows a read-only root configuration (custom Docker build). 
 
-- GKE Load balancers do not have annotations to terminate at the LB
-  - https://cloud.google.com/kubernetes-engine/docs/concepts/service-load-balancer-parameters
-- Examples of a basic start and stop are in restart folder along with the helm commands needed.
+# 3 Primary (aka core) Neo4j members
+TODO
 - Example of Neo4j Reverse Proxy
-- Rudimentary docker files are present - these are used in the Neo4j cluster creation 
-  - axb-debug is apoc, extended and bloom
-  - axbg-debug is apoc, extened, bloom and GDS
-- Docker build command (this is AMD64, you can do ARM64 )
-docker buildx build --platform linux/amd64 -t us-central1-docker.pkg.dev/neo4j-se-team-201905/rosenblum-test/neo4j-axeb2110g265:enterprise-amd-5.19.0 --push axb-debug/.
+
+# Building a custom Docker image
+- Rudimentary docker files are present - these are used to build a custom Neo4j image
+  - axb-debug is apoc, apoc extended and bloom
+  - axbg-debug is apoc, apoc extended, bloom and GDS
+- Example Docker build command (this is AMD64, you can do ARM64)
+
+  ```docker buildx build --platform linux/amd64 -t us-central1-docker.pkg.dev/neo4j-se-team-201905/rosenblum-test/neo4j-axeb2110g265:enterprise-amd-5.19.0 --push axb-debug/.```
+
+
+# GKE Load Balancers consideration
+GKE Load Balancers do not have annotations to terminate at the LB
+https://cloud.google.com/kubernetes-engine/docs/concepts/service-load-balancer-parameters
