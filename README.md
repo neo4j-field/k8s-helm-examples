@@ -5,4 +5,4 @@ Neo4j k8s deployment examples using helm
 
 ## [AWS Elastic Kubernetes Service (EKS) Examples](./genericEKS/README.md)
 
-## [Google Kubernetes Engine (GKE) Examples ](./genericGKE/README.md)
+## [Google Kubernetes Engine (GKE) Examples](./genericGKE/README.md)
