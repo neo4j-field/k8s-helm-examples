@@ -1,7 +1,6 @@
 *cred*
+
 .DS_Store
 */.DS_Store
 *.zip
 */*.zip
-/genericEKS/clientSamples
-/charts
