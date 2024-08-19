@@ -1,0 +1,12 @@
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    name: neo4j-ssd-highiops
+  provisioner: pd.csi.storage.gke.io
+  volumeBindingMode: WaitForFirstConsumer
+  allowVolumeExpansion: true
+  reclaimPolicy: Retain
+  parameters:
+    type: hyperdisk-extreme
+    provisioned-iops-on-create: '150000'
+    csi.storage.k8s.io/fstype: xfs

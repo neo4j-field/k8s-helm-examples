@@ -1,0 +1,12 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: neo4j-ssd
+provisioner: pd.csi.storage.gke.io
+parameters:
+  type: pd-ssd
+  csi.storage.k8s.io/fstype: xfs
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+#wait for First Consumer because we need the data to be in the same AZ as the pod
+volumeBindingMode: WaitForFirstConsumer
