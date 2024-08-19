@@ -1,6 +1,4 @@
 *cred*
 
 .DS_Store
-*/.DS_Store
-*.zip
-*/*.zip
+.DS_Store?
