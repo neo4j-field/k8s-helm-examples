@@ -18,7 +18,7 @@ neo4j:
     cpu: "1.100"
     memory: "5G"
   # Uncomment to set the initial password
-  #password: ""
+  #password: "Neo4j123"
   passwordFromSecret: "neo4jpwd"
   offlineMaintenanceModeEnabled: false
   # Uncomment to use enterprise edition
@@ -124,6 +124,11 @@ volumes:
   data:
     mode: "dynamic"
     dynamic:
+      # In GKE;
+      # * premium-rwo provisions SSD disks (recommended)
+      # * standard-rwo provisions balanced SSD-backed disks
+      # * standard provisions HDD disks
+      #storageClassName: premium-rwo
       storageClassName: "neo4j-ssd"
       requests:
         storage: 50Gi

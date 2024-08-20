@@ -1,3 +1,8 @@
+# Prerequisites
+Before you can deploy a Neo4j standalone instance on Kubernetes, you need to:
+- https://neo4j.com/docs/operations-manual/current/kubernetes/quickstart-standalone/prerequisites/
+- https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl#install_plugin
+
 # Single, standalone Neo4j instance
   - Basic start and stop scripts are in [scripts](./scripts) folder along with the helm commands needed.
     - start: ```helm upgrade -i standalone  neo4j/neo4j -f standalone.yaml```
