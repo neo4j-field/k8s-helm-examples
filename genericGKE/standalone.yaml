@@ -34,7 +34,6 @@ config:
   server.memory.heap.max_size: "2G"
   server.memory.pagecache.size: "1500M"
   server.directories.transaction.logs.root: /transactions
-  db.tx_log.rotation.retention_policy: "1 hours"
   #below for testing use only - TX log retention must match backup strategy and/or time for store copy
   db.tx_log.rotation.retention_policy: "1 hours"
 
