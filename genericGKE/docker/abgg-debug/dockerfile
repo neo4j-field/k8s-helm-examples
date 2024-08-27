@@ -1,0 +1,8 @@
+FROM neo4j:5.23.0-enterprise
+RUN apt-get update    \
+&& apt-get install -y zip unzip curl wget
+
+RUN cp /var/lib/neo4j/products/*bloom*.jar /var/lib/neo4j/plugins
+RUN cp /var/lib/neo4j/products/*graph-data-science*.jar /var/lib/neo4j/plugins
+RUN cp /var/lib/neo4j/labs/apoc*.jar /var/lib/neo4j/plugins
+RUN cp /var/lib/neo4j/products/*genai*.jar /var/lib/neo4j/plugins
