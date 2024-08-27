@@ -7,7 +7,8 @@ Before you can deploy a Neo4j standalone instance on Kubernetes, you need to:
   - Basic start and stop scripts are in [scripts](./scripts) folder along with the helm commands needed.
     - start: ```helm upgrade -i standalone  neo4j/neo4j -f standalone.yaml```
     - stop: ```helm uninstall standalone```
-  - Uses a custom image vs the default Neo4j image.
+  - standalone.yaml uses the default Neo4j image
+  - standalone-custom-image.yaml uses a custom image vs the default Neo4j image.
     - The custom docker image shows a read-only root configuration (custom Docker build). 
 
 # 3 Primary (aka core) Neo4j members
