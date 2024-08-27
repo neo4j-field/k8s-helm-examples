@@ -1,0 +1,15 @@
+export cluster_name=drose-cluster2
+export region_code=us-east-2
+eksctl create iamserviceaccount \
+  --name fsx-csi-controller-sa \
+  --namespace kube-system \
+  --cluster $cluster_name \
+  --attach-policy-arn arn:aws:iam::aws:policy/AmazonFSxFullAccess \
+  --approve \
+  --role-name AmazonEKSFSxLustreCSIDriverFullAccess \
+  --region $region_code
+kubectl apply -k "kubectl apply -k "github.com/kubernetes-sigs/aws-fsx-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.2"
+export IAM_SVC_FSX_SA=arn:aws:iam::766746056086:role/AmazonEKSFSxLustreCSIDriverFullAccess
+kubectl annotate serviceaccount -n kube-system fsx-csi-controller-sa \
+  eks.amazonaws.com/role-arn=$IAM_SVC_FSX_SA --overwrite=true
+

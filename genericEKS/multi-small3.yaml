@@ -3,7 +3,7 @@ image:
   imagePullPolicy: "Always"
   #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-aeb281-5.9.0-enterprise-arm"
   #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb211-5.13.0-enterprise-arm"
-  customImage: "davidlrosenblum/neo4jpocgds:5.19.0-enterprise"
+  customImage: "davidlrosenblum/neo4jpocgds:5.20.0-enterprise"
 #If a custom domain is in use
 #clusterDomain: "neo4j.cluster.local"
 
@@ -36,13 +36,24 @@ services:
     enabled: false
 
 config:
-  dbms.cluster.discovery.resolver_type: LIST
-  dbms.cluster.discovery.endpoints: "k8s-neo4j-multi1ai-92382c9d0b-a16a7a821054ca85.elb.us-east-2.amazonaws.com:5000, k8s-neo4j-multi1bi-6ce727722f-11eeb1a5de6933b5.elb.us-east-2.amazonaws.com:5000, k8s-neo4j-multi1ci-9620dd5352-4aaa61a077b267f7.elb.us-east-2.amazonaws.com:5000"
-  server.discovery.advertised_address: "k8s-neo4j-multi1ci-9620dd5352-4aaa61a077b267f7.elb.us-east-2.amazonaws.com:5000"
-  server.cluster.advertised_address: "k8s-neo4j-multi1ci-9620dd5352-4aaa61a077b267f7.elb.us-east-2.amazonaws.com:6000"
-  server.cluster.raft.advertised_address: "k8s-neo4j-multi1ci-9620dd5352-4aaa61a077b267f7.elb.us-east-2.amazonaws.com:7000"
-  server.bolt.advertised_address: "multi3-internals.neo4j.svc.cluster.local:7687"
-  server.routing.advertised_address: "multi3-internals.neo4j.svc.cluster.local:7688"
+  # dbms.cluster.discovery.resolver_type: LIST
+  # dbms.cluster.discovery.endpoints: "mlb1.drose-private.com:5000,mlb2.drose-private.com:5000,mlb3.drose-private.com:5000"
+  # dbms.cluster.discovery.resolver_type: "DNS"
+  # dbms.cluster.discovery.endpoints: "mlb-discovery.drose-private.com:5000"
+  # server.discovery.advertised_address: "10.10.136.185:5000"
+  # server.cluster.advertised_address: "10.10.136.185:6000"
+  # server.cluster.raft.advertised_address: "10.10.136.185:7000"
+
+
+  dbms.cluster.discovery.resolver_type: SRV
+  dbms.cluster.discovery.endpoints: "discovery.mlb.drose-private.com:5000" 
+  # internal.dbms.cluster.endpoints: "cluster-endpoints.mlb.drose-private.com:6000"
+  # internal.dbms.cluster.discovery.parallel_mode: "ALTERNATE_ONLY"
+  server.discovery.advertised_address: "mlb3.drose-private.com:5000"
+  server.cluster.advertised_address: "mlb3.drose-private.com:6000"
+  server.cluster.raft.advertised_address: "mlb3.drose-private.com:7000"
+  server.bolt.advertised_address: "mlb3.drose-private.com:7687"
+  server.routing.advertised_address: "mlb3.drose-private.com:7688"
   server.backup.enabled: "true"
   server.config.strict_validation: "false"
   db.logs.query.enabled: "OFF"

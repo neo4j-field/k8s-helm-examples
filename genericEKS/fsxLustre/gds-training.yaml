@@ -1,0 +1,122 @@
+image:
+  imagePullPolicy: "Always"
+  customImage: "davidlrosenblum/neo4jpocgds:5.21.2-enterprise"
+  # customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb2110g256-5.15.0-enterprise-arm"
+  
+neo4j:
+  name: "gdsfsx"
+  resources:
+    cpu: "7"
+    memory: "58G"
+  # Uncomment to set the initial password
+  #password: ""
+  passwordFromSecret: "neo4jpwd"
+  offlineMaintenanceModeEnabled: false
+  # Uncomment to use enterprise edition
+  edition: "enterprise"
+  acceptLicenseAgreement: "yes"
+  minimumClusterSize: "1"
+
+nodeSelector:
+  eks.amazonaws.com/nodegroup: "gdstraining"
+
+# env:
+#   NEO4J_PLUGINS: '["graph-data-science", "bloom", "apoc"]'
+
+services:
+  neo4j:
+    enabled: false
+
+podSpec:
+  loadbalancer: "exclude"
+
+
+config:
+  server.backup.enabled: "true"
+  server.config.strict_validation: "false"
+  db.logs.query.enabled: "OFF"
+  gds.enterprise.license_file: "/licenses/local/gds.license"
+  dbms.bloom.license_file: "/licenses/local/bloom.license"
+  dbms.security.procedures.unrestricted: "apoc.*,bloom.*,gds.*"
+  dbms.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
+  dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
+  server.directories.plugins: "/var/lib/neo4j/plugins"
+  server.memory.heap.initial_size: "30G"
+  server.memory.heap.max_size: "30G"
+  server.memory.pagecache.size: "20G"
+  dbms.max_databases: "275"
+  # server.directories.transaction.logs.root: /transactions
+  # server.memory.query_cache.sharing_enabled: "true"
+  # server.memory.query_cache.shared_cache_num_entries: "4000"
+  # dbms.security.oidc.azure.config: "principal=unique_name;code_challenge_method=S256;token_type_principal=access_token;token_type_authentication=access_token"
+  # dbms.security.oidc.azure.token_endpoint: "https://login.microsoftonline.com/54e85725-ed2a-49a4-a19e-11c8d29f9a0f/oauth2/v2.0/token"
+  # dbms.security.oidc.azure.issuer: "https://sts.windows.net/54e85725-ed2a-49a4-a19e-11c8d29f9a0f/"
+  # dbms.security.oidc.azure.params: "client_id=4376dc8b-b5af-424f-9ada-c1c1b2d416b9;response_type=code;scope=openid profile email api://ad74bd57-8333-443e-8c82-563ac82421eb/access-token"
+  # dbms.security.oidc.azure.issuer: "https://sts.windows.net/54e85725-ed2a-49a4-a19e-11c8d29f9a0f/"
+  # dbms.security.oidc.azure.params: "client_id=4376dc8b-b5af-424f-9ada-c1c1b2d416b9;response_type=code;scope=openid profile email api://d3ba464b-fe73-49c6-9f80-3321050c41c9/Token.Connect"
+  # dbms.security.oidc.azure.audience: "d3ba464b-fe73-49c6-9f80-3321050c41c9"
+  # #dbms.security.oidc.azure.params: "client_id=d3ba464b-fe73-49c6-9f80-3321050c41c9;response_type=code;scope=openid profile email"
+  # dbms.security.oidc.azure.well_known_discovery_uri: "https://login.microsoftonline.com/54e85725-ed2a-49a4-a19e-11c8d29f9a0f/v2.0/.well-known/openid-configuration"
+  # dbms.security.oidc.azure.claims.username: "email2"
+  # dbms.security.authentication_providers: "oidc-azure,native"
+  # dbms.security.authorization_providers: "oidc-azure,native"
+  # dbms.security.oidc.azure.display_name: "Azure"
+  # dbms.security.oidc.azure.auth_flow: "pkce"
+  # dbms.security.oidc.azure.config: "principal=unique_name;code_challenge_method=S256;token_type_principal=access_token;token_type_authentication=access_token"
+  # #dbms.security.oidc.azure.config: "token_type_principal=id_token;token_type_authentication=id_token"
+  # #dbms.security.oidc.azure.claims.username: "sub"
+  # dbms.security.oidc.azure.claims.groups: "roles"
+
+apoc_config:
+  apoc.export.file.enabled: "true"
+  apoc.import.file.enabled: "true"
+  #apoc.trigger.enabled: "true"
+
+
+additionalVolumeMounts:
+  - name: license-keys
+    mountPath: /licenses/local
+    readOnly: true
+
+additionalVolumes:
+  - name: license-keys
+    configMap:
+      name: license-config
+
+volumes:
+  # data:
+  #   mode: "dynamic"
+  #   dynamic:
+  #     storageClassName: "sc-gp3-xfs"
+  #     requests:
+  #       storage: 50Gi
+  data:
+    mode: "volume"
+    volume:
+      setOwnerAndGroupWritableFilePermissions: true
+      subPath: gdsfsx
+      persistentVolumeClaim:
+        claimName: fsx-claim
+  # uncomment to mount your efs
+  import:
+    mode: volume
+    volume:
+      setOwnerAndGroupWritableFilePermissions: true
+      persistentVolumeClaim:
+        claimName: pvc-efs-dynamic
+  # logs:
+  #   mode: "dynamic"
+  #   dynamic:
+  #     storageClassName: "aws-gp3-xfs"
+  #     accessModes:
+  #       - ReadWriteOnce
+  #     requests:
+  #       storage: 100Gi
+  # transactions:
+  #     mode: "dynamic"
+  #     dynamic:
+  #       storageClassName: "aws-gp3-xfs"
+  #       accessModes:
+  #         - ReadWriteOnce
+  #       requests:
+  #         storage: 512Gi

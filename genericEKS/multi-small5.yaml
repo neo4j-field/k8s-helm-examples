@@ -1,0 +1,112 @@
+
+image:
+  imagePullPolicy: "Always"
+  #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-aeb281-5.9.0-enterprise-arm"
+  #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb211-5.13.0-enterprise-arm"
+  customImage: "davidlrosenblum/neo4jpocgds:5.19.0-enterprise"
+#If a custom domain is in use
+#clusterDomain: "neo4j.cluster.local"
+
+neo4j:
+  name: "multismall"
+  resources:
+    cpu: "1.500"
+    memory: "5G"
+  # Uncomment to set the initial password
+  #password: ""
+  passwordFromSecret: "neo4jpwd"
+  offlineMaintenanceModeEnabled: false
+  # Uncomment to use enterprise edition
+  edition: "enterprise"
+  acceptLicenseAgreement: "yes"
+  minimumClusterSize: "3"
+
+  labels:
+    eks.amazonaws.com/nodetype: "primary"
+
+
+nodeSelector:
+  eks.amazonaws.com/nodegroup: "minimal3"
+  topology.kubernetes.io/zone: "us-east-2b"
+# env:
+#   NEO4J_PLUGINS: '["bloom", "apoc"]'
+
+services:
+  neo4j:
+    enabled: false
+
+
+
+config:
+  dbms.cluster.discovery.resolver_type: LIST
+  dbms.cluster.discovery.endpoints: "mlb1.drose-private.com:5000,mlb2.drose-private.com:5000,mlb3.drose-private.com:5000,mlb4.drose-private.com:5000,mlb5.drose-private.com:5000"
+  server.discovery.advertised_address: "mlb5.drose-private.com:5000"
+  server.cluster.advertised_address: "mlb5.drose-private.com:6000"
+  server.cluster.raft.advertised_address: "mlb5.drose-private.com:7000"
+  server.bolt.advertised_address: "mlb5.drose-private.com:7687"
+  server.routing.advertised_address: "mlb5.drose-private.com:7688"
+  server.backup.enabled: "true"
+  server.config.strict_validation: "false"
+  db.logs.query.enabled: "OFF"
+  gds.enterprise.license_file: "/licenses/local/gds.license"
+  dbms.bloom.license_file: "/licenses/local/bloom.license"
+  dbms.security.procedures.unrestricted: "apoc.*,bloom.*,gds.*"
+  dbms.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
+  dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
+  server.directories.plugins: "/var/lib/neo4j/plugins"
+  server.memory.heap.initial_size: "2G"
+  server.memory.heap.max_size: "2G"
+  server.memory.pagecache.size: "1000M"
+  #server.directories.transaction.logs.root: /transactions
+  initial.server.mode_constraint: "PRIMARY"
+  initial.dbms.default_primaries_count: "3"
+  server.metrics.enabled: "true"
+  server.metrics.csv.interval: "30s"
+  server.metrics.csv.rotation.keep_number: "5"
+  server.metrics.csv.rotation.compression: "NONE"
+  db.tx_log.rotation.retention_policy: "1 hours"
+
+
+
+apoc_config:
+  apoc.export.file.enabled: "true"
+  apoc.import.file.enabled: "true"
+  apoc.trigger.enabled: "true"
+
+# Only if a custom domain is in use
+#  causal_clustering.kubernetes.cluster_domain: "neo4j.cluster.local"
+
+
+additionalVolumeMounts:
+  - name: license-keys
+    mountPath: /licenses/local
+    readOnly: true
+
+additionalVolumes:
+  - name: license-keys
+    configMap:
+      name: license-config
+
+volumes:
+  data:
+    mode: "dynamic"
+    dynamic:
+      storageClassName: "neo4j-ssd"
+      requests:
+        storage: 50Gi
+  # uncomment to mount your efs
+  # import:
+  #   mode: volume
+  #   volume:
+  #     setOwnerAndGroupWritableFilePermissions: true
+  #     persistentVolumeClaim:
+  #       claimName: pvc-efs-dynamic
+  # transactions:
+  #     mode: "dynamic"
+  #     dynamic:
+  #       storageClassName: "gp3highiops"
+  #       accessModes:
+  #         - ReadWriteOnce
+  #       requests:
+  #         storage: 100Gi
+  

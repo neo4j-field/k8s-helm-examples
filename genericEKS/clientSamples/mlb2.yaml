@@ -6,6 +6,7 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-scheme: internal
     #below is my us-east-2a private subnet
     service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-04852940fd3b04f16"
+    external-dns.alpha.kubernetes.io/hostname: mlb2.drose-private.com
     # service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
     # #service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, 7687
     # service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp

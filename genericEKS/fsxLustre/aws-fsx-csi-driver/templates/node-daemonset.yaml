@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fsx-csi-node
+  labels:
+    {{- include "aws-fsx-csi-driver.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: fsx-csi-node
+      {{- include "aws-fsx-csi-driver.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.node.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: fsx-csi-node
+        {{- include "aws-fsx-csi-driver.labels" . | nindent 8 }}
+    spec:
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+      {{- range .Values.imagePullSecrets }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      nodeSelector:
+        kubernetes.io/os: linux
+        {{- with .Values.node.nodeSelector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      dnsPolicy: {{ .Values.node.dnsPolicy }}
+      {{- with .Values.node.dnsConfig }}
+      dnsConfig: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.node.serviceAccount.name }}
+      priorityClassName: system-node-critical
+      tolerations:
+        {{- if .Values.node.tolerateAllTaints }}
+        - operator: Exists
+        {{- else }}
+        {{- with .Values.node.tolerations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        - key: "fsx.csi.aws.com/agent-not-ready"
+          operator: "Exists"
+        {{- end }}
+      containers:
+        - name: fsx-plugin
+          securityContext:
+            privileged: true
+          image: {{ printf "%s:%s" .Values.image.repository (default (printf "v%s" .Chart.AppVersion) (toString .Values.image.tag)) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --mode={{ .Values.node.mode }}
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logging-format={{ .Values.node.loggingFormat }}
+            - --v={{ .Values.node.logLevel }}
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:/csi/csi.sock
+            - name: CSI_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: kubelet-dir
+              mountPath: /var/lib/kubelet
+              mountPropagation: "Bidirectional"
+            - name: plugin-dir
+              mountPath: /csi
+          ports:
+            - name: healthz
+              containerPort: 9810
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 2
+            failureThreshold: 5
+          {{- with .Values.node.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        - name: node-driver-registrar
+          image: {{ printf "%s:%s" .Values.sidecars.nodeDriverRegistrar.image.repository .Values.sidecars.nodeDriverRegistrar.image.tag }}
+          imagePullPolicy: {{ .Values.sidecars.nodeDriverRegistrar.image.pullPolicy }}
+          args:
+            - --csi-address=$(ADDRESS)
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --v={{ .Values.sidecars.nodeDriverRegistrar.logLevel }}
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: /var/lib/kubelet/plugins/fsx.csi.aws.com/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+          {{- with default .Values.node.resources .Values.sidecars.nodeDriverRegistrar.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        - name: liveness-probe
+          image: {{ printf "%s:%s" .Values.sidecars.livenessProbe.image.repository .Values.sidecars.livenessProbe.image.tag }}
+          imagePullPolicy: {{ .Values.sidecars.livenessProbe.image.pullPolicy }}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --health-port=9810
+          volumeMounts:
+            - mountPath: /csi
+              name: plugin-dir
+          {{- with default .Values.node.resources .Values.sidecars.livenessProbe.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: kubelet-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+        - name: plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/fsx.csi.aws.com/
+            type: DirectoryOrCreate

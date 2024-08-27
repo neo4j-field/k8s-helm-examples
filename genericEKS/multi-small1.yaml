@@ -3,12 +3,13 @@ image:
   imagePullPolicy: "Always"
   #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-aeb281-5.9.0-enterprise-arm"
   #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb211-5.13.0-enterprise-arm"
-  customImage: "davidlrosenblum/neo4jpocgds:5.19.0-enterprise"
+  customImage: "davidlrosenblum/neo4jpocgds:5.21.2-enterprise"
+
 #If a custom domain is in use
 #clusterDomain: "neo4j.cluster.local"
 
 neo4j:
-  name: "multismall"
+  name: "msmall"
   resources:
     cpu: "1.500"
     memory: "5G"
@@ -21,13 +22,12 @@ neo4j:
   acceptLicenseAgreement: "yes"
   minimumClusterSize: "3"
 
-  labels:
-    eks.amazonaws.com/nodetype: "primary"
+
 
 
 nodeSelector:
-  eks.amazonaws.com/nodegroup: "minimal3"
-  topology.kubernetes.io/zone: "us-east-2a"
+  eks.amazonaws.com/nodegroup: "minimal"
+  #topology.kubernetes.io/zone: "us-east-2a"
 
 # env:
 #   NEO4J_PLUGINS: '["bloom", "apoc"]'
@@ -39,13 +39,6 @@ services:
 
 
 config:
-  dbms.cluster.discovery.resolver_type: LIST
-  dbms.cluster.discovery.endpoints: "k8s-neo4j-multi1ai-92382c9d0b-a16a7a821054ca85.elb.us-east-2.amazonaws.com:5000, k8s-neo4j-multi1bi-6ce727722f-11eeb1a5de6933b5.elb.us-east-2.amazonaws.com:5000, k8s-neo4j-multi1ci-9620dd5352-4aaa61a077b267f7.elb.us-east-2.amazonaws.com:5000"
-  server.discovery.advertised_address: "k8s-neo4j-multi1ai-92382c9d0b-a16a7a821054ca85.elb.us-east-2.amazonaws.com:5000"
-  server.cluster.advertised_address: "k8s-neo4j-multi1ai-92382c9d0b-a16a7a821054ca85.elb.us-east-2.amazonaws.com:6000"
-  server.cluster.raft.advertised_address: "k8s-neo4j-multi1ai-92382c9d0b-a16a7a821054ca85.elb.us-east-2.amazonaws.com:7000"
-  server.bolt.advertised_address: "multi1-internals.neo4j.svc.cluster.local:7687"
-  server.routing.advertised_address: "multi1-internals.neo4j.svc.cluster.local:7688"
   server.backup.enabled: "true"
   server.config.strict_validation: "false"
   db.logs.query.enabled: "OFF"
@@ -90,24 +83,18 @@ additionalVolumes:
 
 volumes:
   data:
-    mode: "dynamic"
-    dynamic:
-      storageClassName: "neo4j-ssd"
-      requests:
-        storage: 50Gi
+    mode: "volume"
+    volume:
+      setOwnerAndGroupWritableFilePermissions: true
+      subPath: msmall1
+      persistentVolumeClaim:
+        claimName: fsx-claim
   # uncomment to mount your efs
-  # import:
-  #   mode: volume
-  #   volume:
-  #     setOwnerAndGroupWritableFilePermissions: true
-  #     persistentVolumeClaim:
-  #       claimName: pvc-efs-dynamic
-  # transactions:
-  #     mode: "dynamic"
-  #     dynamic:
-  #       storageClassName: "gp3highiops"
-  #       accessModes:
-  #         - ReadWriteOnce
-  #       requests:
-  #         storage: 100Gi
+  import:
+    mode: volume
+    volume:
+      setOwnerAndGroupWritableFilePermissions: true
+      persistentVolumeClaim:
+        claimName: pvc-efs-dynamic
+
   

@@ -1,0 +1,52 @@
+{{- $port := include "neo4j.reverseProxy.port" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "neo4j.fullname" . }}-reverseproxy-dep
+  labels:
+    name: {{ include "neo4j.fullname" . }}-reverseproxy-dep
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: {{ include "neo4j.fullname" . }}-reverseproxy
+  template:
+    metadata:
+      name: {{ include "neo4j.fullname" . }}-reverseproxy
+      labels:
+        name: {{ include "neo4j.fullname" . }}-reverseproxy
+    spec:
+      securityContext: {{ toYaml .Values.reverseProxy.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ include "neo4j.fullname" . }}-reverseproxy
+          image: {{ $.Values.reverseProxy.image }}
+          imagePullPolicy: Always
+          securityContext: {{ toYaml .Values.reverseProxy.containerSecurityContext | nindent 12 }}
+          ports:
+            - containerPort: {{ $port }}
+          env:
+            - name: SERVICE_NAME
+              value: {{ $.Values.reverseProxy.serviceName }}
+            - name: PORT
+              value: {{ add $port 8000 | quote }}
+            - name: DOMAIN
+              value: {{ $.Values.reverseProxy.domain | default "cluster.local" }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "neo4j.fullname" . }}-reverseproxy-service
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  type: ClusterIP
+  selector:
+    name: {{ include "neo4j.fullname" . }}-reverseproxy
+  ports:
+    - protocol: TCP
+      port: {{ $port }}
+      targetPort: {{ add $port 8000 }}
+---
+

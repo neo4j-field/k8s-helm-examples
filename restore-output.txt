@@ -1,0 +1,238 @@
+neo4j@multi3-0:~$ neo4j-admin  database restore  --from-path=import/backup/paysim-2024-05-21T14-20-04.backup --expand-commands --verbose --additional-config=conf/neo4j-admin-load.conf 
+Executing command line: /opt/java/openjdk/bin/java -cp /var/lib/neo4j/plugins/*:/config/*:/var/lib/neo4j/lib/* -XX:+UseParallelGC -XX:-OmitStackTraceInFastThrow -XX:+UnlockExperimentalVMOptions -XX:+TrustFinalNonStaticFields -XX:+DisableExplicitGC -Djdk.nio.maxCachedBufferSize=1024 -Dio.netty.tryReflectionSetAccessible=true -XX:+ExitOnOutOfMemoryError -Djdk.tls.ephemeralDHKeySize=2048 -XX:FlightRecorderOptions=stackdepth=256 -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED -Dlog4j2.disable.jmx=true -Dfile.encoding=UTF-8 -Xmx524288k org.neo4j.cli.AdminTool database restore --from-path=import/backup/paysim-2024-05-21T14-20-04.backup --additional-config=conf/neo4j-admin-load.conf --expand-commands --verbose
+neo4j 5.19.0
+VM Name: OpenJDK 64-Bit Server VM
+VM Vendor: Eclipse Adoptium
+VM Version: 17.0.10+7
+JIT compiler: HotSpot 64-Bit Tiered Compilers
+VM Arguments: [-XX:+UseParallelGC, -XX:-OmitStackTraceInFastThrow, -XX:+UnlockExperimentalVMOptions, -XX:+TrustFinalNonStaticFields, -XX:+DisableExplicitGC, -Djdk.nio.maxCachedBufferSize=1024, -Dio.netty.tryReflectionSetAccessible=true, -XX:+ExitOnOutOfMemoryError, -Djdk.tls.ephemeralDHKeySize=2048, -XX:FlightRecorderOptions=stackdepth=256, -XX:+UnlockDiagnosticVMOptions, -XX:+DebugNonSafepoints, --add-opens=java.base/java.nio=ALL-UNNAMED, --add-opens=java.base/java.io=ALL-UNNAMED, --add-opens=java.base/sun.nio.ch=ALL-UNNAMED, -Dlog4j2.disable.jmx=true, -Dfile.encoding=UTF-8, -Xmx524288k]
+Configuration files used (ordered by priority):
+/var/lib/neo4j/conf/neo4j-admin-load.conf
+/config/neo4j.conf
+--------------------
+2024-05-21 14:26:02.187+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Starting to restore RestoreSource{sourceDirectory=/var/lib/neo4j/import/backup, databaseName='paysim', type=Artifact, artifact chain=paysim [1-37] from artifacts: [file:///var/lib/neo4j/import/backup/paysim-2024-05-21T14-20-04.backup]}
+2024-05-21 14:26:02.229+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Created temporary directory for extracting artifacts
+2024-05-21 14:26:02.236+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Unpacking database from RestoreSource{sourceDirectory=/var/lib/neo4j/import/backup, databaseName='paysim', type=Artifact, artifact chain=paysim [1-37] from artifacts: [file:///var/lib/neo4j/import/backup/paysim-2024-05-21T14-20-04.backup]}
+2024-05-21 14:26:02.243+0000 INFO  [c.n.b.c.BackupArtifactService] Unpacking full backup artifact: file:///var/lib/neo4j/import/backup/paysim-2024-05-21T14-20-04.backup into directory: PlainDatabaseLayout{databaseDirectory=/var/lib/neo4j/import/backup/paysim-temp-extracted-artifacts-0, transactionLogsDirectory=/var/lib/neo4j/import/backup/paysim-temp-extracted-artifacts-0}
+2024-05-21 14:26:02.266+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 1/109, data:  0.0%
+2024-05-21 14:26:02.267+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 1/109, data:  0.0%
+2024-05-21 14:26:02.268+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 2/109, data:  0.1%
+2024-05-21 14:26:02.270+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 3/109, data:  0.1%
+2024-05-21 14:26:02.271+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 4/109, data:  0.2%
+2024-05-21 14:26:02.272+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 5/109, data:  0.2%
+2024-05-21 14:26:02.274+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 6/109, data:  0.3%
+2024-05-21 14:26:02.275+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 7/109, data:  0.3%
+2024-05-21 14:26:02.276+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 8/109, data:  0.3%
+2024-05-21 14:26:02.278+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 9/109, data:  0.4%
+2024-05-21 14:26:02.279+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 10/109, data:  0.4%
+2024-05-21 14:26:02.280+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 11/109, data:  0.5%
+2024-05-21 14:26:02.281+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 12/109, data:  0.5%
+2024-05-21 14:26:02.282+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 13/109, data:  0.6%
+2024-05-21 14:26:02.283+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 14/109, data:  0.6%
+2024-05-21 14:26:02.324+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 15/109, data:  0.7%
+2024-05-21 14:26:02.325+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 16/109, data:  0.7%
+2024-05-21 14:26:02.326+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 17/109, data:  0.7%
+2024-05-21 14:26:02.331+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 18/109, data:  1.0%
+2024-05-21 14:26:02.334+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 18/109, data:  1.8%
+2024-05-21 14:26:02.336+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 19/109, data:  2.0%
+2024-05-21 14:26:02.339+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 19/109, data:  2.9%
+2024-05-21 14:26:02.341+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 20/109, data:  3.0%
+2024-05-21 14:26:02.345+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 20/109, data:  4.0%
+2024-05-21 14:26:02.347+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 20/109, data:  4.6%
+2024-05-21 14:26:02.349+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 21/109, data:  4.7%
+2024-05-21 14:26:02.351+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 22/109, data:  5.0%
+2024-05-21 14:26:02.354+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 22/109, data:  6.0%
+2024-05-21 14:26:02.355+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 22/109, data:  6.6%
+2024-05-21 14:26:02.357+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 23/109, data:  7.0%
+2024-05-21 14:26:02.360+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 23/109, data:  8.0%
+2024-05-21 14:26:02.361+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 23/109, data:  8.4%
+2024-05-21 14:26:02.364+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 24/109, data:  9.0%
+2024-05-21 14:26:02.367+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 24/109, data: 10.0%
+2024-05-21 14:26:02.370+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 24/109, data: 11.0%
+2024-05-21 14:26:02.372+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 24/109, data: 11.9%
+2024-05-21 14:26:02.373+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 25/109, data: 12.0%
+2024-05-21 14:26:02.376+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 25/109, data: 13.0%
+2024-05-21 14:26:02.378+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 25/109, data: 14.0%
+2024-05-21 14:26:02.424+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 25/109, data: 15.0%
+2024-05-21 14:26:02.426+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 25/109, data: 16.0%
+2024-05-21 14:26:02.428+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 25/109, data: 17.0%
+2024-05-21 14:26:02.430+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 25/109, data: 18.0%
+2024-05-21 14:26:02.432+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 25/109, data: 19.0%
+2024-05-21 14:26:02.433+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 25/109, data: 19.5%
+2024-05-21 14:26:02.436+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 26/109, data: 20.0%
+2024-05-21 14:26:02.437+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 27/109, data: 20.0%
+2024-05-21 14:26:02.437+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 27/109, data: 20.0%
+2024-05-21 14:26:02.439+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 28/109, data: 20.1%
+2024-05-21 14:26:02.441+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 29/109, data: 20.2%
+2024-05-21 14:26:02.444+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 30/109, data: 21.0%
+2024-05-21 14:26:02.446+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 30/109, data: 22.0%
+2024-05-21 14:26:02.448+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 30/109, data: 23.0%
+2024-05-21 14:26:02.449+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 30/109, data: 23.5%
+2024-05-21 14:26:02.451+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 31/109, data: 23.7%
+2024-05-21 14:26:02.452+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 32/109, data: 23.8%
+2024-05-21 14:26:02.454+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 33/109, data: 23.8%
+2024-05-21 14:26:02.455+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 34/109, data: 24.0%
+2024-05-21 14:26:02.456+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 35/109, data: 24.0%
+2024-05-21 14:26:02.458+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 35/109, data: 24.5%
+2024-05-21 14:26:02.460+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 36/109, data: 25.0%
+2024-05-21 14:26:02.462+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 36/109, data: 26.0%
+2024-05-21 14:26:02.464+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 36/109, data: 27.0%
+2024-05-21 14:26:02.466+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 36/109, data: 28.0%
+2024-05-21 14:26:02.468+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 36/109, data: 29.0%
+2024-05-21 14:26:02.470+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 36/109, data: 30.0%
+2024-05-21 14:26:02.473+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 36/109, data: 31.0%
+2024-05-21 14:26:02.475+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 36/109, data: 31.5%
+2024-05-21 14:26:02.477+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 37/109, data: 32.0%
+2024-05-21 14:26:02.479+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 37/109, data: 33.0%
+2024-05-21 14:26:02.480+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 37/109, data: 33.2%
+2024-05-21 14:26:02.481+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 38/109, data: 33.3%
+2024-05-21 14:26:02.482+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 39/109, data: 33.3%
+2024-05-21 14:26:02.482+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 40/109, data: 33.3%
+2024-05-21 14:26:02.483+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 41/109, data: 33.3%
+2024-05-21 14:26:02.483+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 42/109, data: 33.3%
+2024-05-21 14:26:02.484+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 43/109, data: 33.3%
+2024-05-21 14:26:02.484+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 44/109, data: 33.3%
+2024-05-21 14:26:02.486+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 45/109, data: 33.3%
+2024-05-21 14:26:02.487+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 46/109, data: 33.3%
+2024-05-21 14:26:02.488+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 47/109, data: 33.3%
+2024-05-21 14:26:02.488+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 48/109, data: 33.3%
+2024-05-21 14:26:02.489+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 49/109, data: 33.3%
+2024-05-21 14:26:02.490+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 50/109, data: 33.3%
+2024-05-21 14:26:02.490+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 51/109, data: 33.3%
+2024-05-21 14:26:02.491+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 52/109, data: 33.3%
+2024-05-21 14:26:02.524+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 53/109, data: 33.3%
+2024-05-21 14:26:02.525+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 54/109, data: 33.3%
+2024-05-21 14:26:02.525+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 55/109, data: 33.3%
+2024-05-21 14:26:02.526+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 56/109, data: 33.3%
+2024-05-21 14:26:02.527+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 57/109, data: 33.3%
+2024-05-21 14:26:02.528+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 58/109, data: 33.3%
+2024-05-21 14:26:02.528+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 59/109, data: 33.3%
+2024-05-21 14:26:02.529+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 60/109, data: 33.3%
+2024-05-21 14:26:02.529+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 61/109, data: 33.3%
+2024-05-21 14:26:02.530+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 62/109, data: 33.3%
+2024-05-21 14:26:02.531+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 63/109, data: 33.3%
+2024-05-21 14:26:02.532+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 64/109, data: 33.3%
+2024-05-21 14:26:02.532+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 65/109, data: 33.3%
+2024-05-21 14:26:02.533+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 66/109, data: 33.3%
+2024-05-21 14:26:02.534+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 67/109, data: 33.3%
+2024-05-21 14:26:02.534+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 68/109, data: 33.3%
+2024-05-21 14:26:02.535+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 69/109, data: 33.3%
+2024-05-21 14:26:02.535+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 70/109, data: 33.3%
+2024-05-21 14:26:02.536+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 71/109, data: 33.3%
+2024-05-21 14:26:02.536+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 72/109, data: 33.3%
+2024-05-21 14:26:02.537+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 73/109, data: 33.3%
+2024-05-21 14:26:02.538+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 74/109, data: 33.3%
+2024-05-21 14:26:02.538+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 75/109, data: 33.3%
+2024-05-21 14:26:02.539+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 76/109, data: 33.3%
+2024-05-21 14:26:02.540+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 77/109, data: 33.3%
+2024-05-21 14:26:02.540+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 78/109, data: 33.3%
+2024-05-21 14:26:02.541+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 79/109, data: 33.3%
+2024-05-21 14:26:02.541+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 80/109, data: 33.3%
+2024-05-21 14:26:02.542+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 81/109, data: 33.3%
+2024-05-21 14:26:02.543+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 82/109, data: 33.3%
+2024-05-21 14:26:02.543+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 83/109, data: 33.3%
+2024-05-21 14:26:02.544+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 84/109, data: 33.3%
+2024-05-21 14:26:02.544+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 85/109, data: 33.3%
+2024-05-21 14:26:02.545+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 86/109, data: 33.3%
+2024-05-21 14:26:02.545+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 87/109, data: 33.3%
+2024-05-21 14:26:02.546+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 88/109, data: 33.3%
+2024-05-21 14:26:02.546+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 89/109, data: 33.3%
+2024-05-21 14:26:02.547+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 90/109, data: 33.3%
+2024-05-21 14:26:02.547+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 91/109, data: 33.3%
+2024-05-21 14:26:02.548+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 92/109, data: 33.3%
+2024-05-21 14:26:02.550+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 93/109, data: 34.0%
+2024-05-21 14:26:02.552+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 93/109, data: 35.0%
+2024-05-21 14:26:02.554+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 93/109, data: 36.0%
+2024-05-21 14:26:02.556+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 93/109, data: 37.0%
+2024-05-21 14:26:02.558+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 93/109, data: 38.0%
+2024-05-21 14:26:02.559+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 93/109, data: 38.4%
+2024-05-21 14:26:02.560+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 94/109, data: 38.4%
+2024-05-21 14:26:02.560+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 95/109, data: 38.4%
+2024-05-21 14:26:02.561+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 96/109, data: 38.4%
+2024-05-21 14:26:02.561+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 97/109, data: 38.4%
+2024-05-21 14:26:02.564+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 39.0%
+2024-05-21 14:26:02.566+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 40.0%
+2024-05-21 14:26:02.568+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 41.0%
+2024-05-21 14:26:02.569+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 42.0%
+2024-05-21 14:26:02.571+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 43.0%
+2024-05-21 14:26:02.573+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 44.0%
+2024-05-21 14:26:02.575+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 45.0%
+2024-05-21 14:26:02.577+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 46.0%
+2024-05-21 14:26:02.578+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 47.0%
+2024-05-21 14:26:02.580+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 48.0%
+2024-05-21 14:26:02.582+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 49.0%
+2024-05-21 14:26:02.584+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 50.0%
+2024-05-21 14:26:02.585+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 51.0%
+2024-05-21 14:26:02.623+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 52.0%
+2024-05-21 14:26:02.625+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 53.0%
+2024-05-21 14:26:02.627+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 54.0%
+2024-05-21 14:26:02.629+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 55.0%
+2024-05-21 14:26:02.631+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 56.0%
+2024-05-21 14:26:02.633+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 57.0%
+2024-05-21 14:26:02.634+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 58.0%
+2024-05-21 14:26:02.636+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 59.0%
+2024-05-21 14:26:02.638+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 60.0%
+2024-05-21 14:26:02.640+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 61.0%
+2024-05-21 14:26:02.642+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 62.0%
+2024-05-21 14:26:02.644+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 63.0%
+2024-05-21 14:26:02.646+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 64.0%
+2024-05-21 14:26:02.648+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 65.0%
+2024-05-21 14:26:02.649+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 98/109, data: 65.8%
+2024-05-21 14:26:02.650+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 66.0%
+2024-05-21 14:26:02.652+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 67.0%
+2024-05-21 14:26:02.655+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 68.0%
+2024-05-21 14:26:02.657+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 69.0%
+2024-05-21 14:26:02.659+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 70.0%
+2024-05-21 14:26:02.661+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 71.0%
+2024-05-21 14:26:02.664+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 72.0%
+2024-05-21 14:26:02.666+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 73.0%
+2024-05-21 14:26:02.669+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 74.0%
+2024-05-21 14:26:02.671+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 75.0%
+2024-05-21 14:26:02.673+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 76.0%
+2024-05-21 14:26:02.675+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 77.0%
+2024-05-21 14:26:02.677+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 78.0%
+2024-05-21 14:26:02.680+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 79.0%
+2024-05-21 14:26:02.682+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 80.0%
+2024-05-21 14:26:02.684+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 81.0%
+2024-05-21 14:26:02.686+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 82.0%
+2024-05-21 14:26:02.688+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 83.0%
+2024-05-21 14:26:02.690+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 84.0%
+2024-05-21 14:26:02.693+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 85.0%
+2024-05-21 14:26:02.695+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 86.0%
+2024-05-21 14:26:02.697+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 87.0%
+2024-05-21 14:26:02.699+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 88.0%
+2024-05-21 14:26:02.725+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 89.0%
+2024-05-21 14:26:02.728+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 90.0%
+2024-05-21 14:26:02.730+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 91.0%
+2024-05-21 14:26:02.732+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 92.0%
+2024-05-21 14:26:02.734+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 93.0%
+2024-05-21 14:26:02.736+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 94.0%
+2024-05-21 14:26:02.738+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 95.0%
+2024-05-21 14:26:02.740+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 96.0%
+2024-05-21 14:26:02.742+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 97.0%
+2024-05-21 14:26:02.744+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 98.0%
+2024-05-21 14:26:02.746+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 99.0%
+2024-05-21 14:26:02.748+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 99/109, data: 99.7%
+2024-05-21 14:26:02.748+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 100/109, data: 99.7%
+2024-05-21 14:26:02.749+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 101/109, data: 99.7%
+2024-05-21 14:26:02.749+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 102/109, data: 99.7%
+2024-05-21 14:26:02.750+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 103/109, data: 99.7%
+2024-05-21 14:26:02.750+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 104/109, data: 99.7%
+2024-05-21 14:26:02.751+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 105/109, data: 100.0%
+2024-05-21 14:26:02.751+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 106/109, data: 100.0%
+2024-05-21 14:26:02.752+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 107/109, data: 100.0%
+2024-05-21 14:26:02.753+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 108/109, data: 100.0%
+2024-05-21 14:26:02.753+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 109/109, data: 100.0%
+2024-05-21 14:26:02.753+0000 INFO  [c.n.b.c.BackupArtifactService] Files: 109/109, data: 100.0%
+2024-05-21 14:26:02.756+0000 INFO  [c.n.b.c.BackupArtifactService] Done: 109 files, 94.31MiB processed.
+2024-05-21 14:26:02.757+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Start recovering database 'paysim'.
+2024-05-21 14:26:03.079+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Finish recovering database 'paysim', took 319ms.
+2024-05-21 14:26:03.129+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Start recovering database 'paysim'.
+2024-05-21 14:26:03.135+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Finish recovering database 'paysim', took 5ms.
+2024-05-21 14:26:03.138+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Finished unpacking database from RestoreSource{sourceDirectory=/var/lib/neo4j/import/backup, databaseName='paysim', type=Artifact, artifact chain=paysim [1-37] from artifacts: [file:///var/lib/neo4j/import/backup/paysim-2024-05-21T14-20-04.backup]}
+2024-05-21 14:26:03.138+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Cleaning target directories [directories: [/data/databases/paysim, /data/transactions/paysim]]
+2024-05-21 14:26:03.139+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Restoring files [from:/var/lib/neo4j/import/backup/paysim-temp-extracted-artifacts-0 , to:PlainDatabaseLayout{databaseDirectory=/data/databases/paysim, transactionLogsDirectory=/data/transactions/paysim}]
+2024-05-21 14:26:03.239+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] You need to execute /data/scripts/paysim/restore_metadata.cypher. To execute the file use cypher-shell command with parameter `paysim`
+2024-05-21 14:26:03.240+0000 INFO  [c.n.b.r.RestoreDatabaseExecutor] Restoring of files completed
+Restore of database 'paysim' from path=`RestoreSource{sourceDirectory=/var/lib/neo4j/import/backup, databaseName='paysim', type=Artifact, artifact chain=paysim [1-37] from artifacts: [file:///var/lib/neo4j/import/backup/paysim-2024-05-21T14-20-04.backup]}` completed successfully.
+You need to execute /data/scripts/paysim/restore_metadata.cypher. To execute the file use cypher-shell command with parameter `paysim`

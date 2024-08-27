@@ -1,0 +1,19 @@
+apiVersion: v1
+name: neo4j-persistent-volume
+home: https://www.neo4j.com
+version: 5.19.0
+appVersion: "-"
+description: Sets up persistent disks suitable for a Neo4j Helm installation
+keywords:
+  - graph
+  - database
+  - cypher
+icon: http://info.neo4j.com/rs/773-GON-065/images/neo4j_logo.png
+sources:
+  - https://github.com/neo4j/neo4j
+  - https://github.com/neo4j/docker-neo4j
+maintainers:
+  - name: bfeshti
+    email: bledi.feshti@neotechnology.com
+  - name: harshitsinghvi22
+    email: harshit.singhvi@neotechnology.com

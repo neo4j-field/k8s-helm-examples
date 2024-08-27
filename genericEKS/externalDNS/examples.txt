@@ -1,3 +1,4 @@
+#Stream of Consciousness notes
 aws iam create-policy --policy-name "AllowExternalDNSUpdates" --policy-document file://externalDNSPolicy.yaml
 
 this wasn't needed if eksctl with OIDC was used
@@ -7,7 +8,9 @@ eksctl utils associate-iam-oidc-provider \
 export EKS_CLUSTER_NAME=drose-highlander-green
 export EKS_CLUSTER_NAME=drose-highlander-blue
 export EKS_CLUSTER_NAME=drose-tc3
+export EKS_CLUSTER_NAME=drose-cluster2
 export DNS_NAME=drose-private.com
+export DNS_NAME=neo4j-field.com
 
 export EKS_CLUSTER_REGION=us-east-2
 export IAM_SVC_ACCT=ext-dns-iam-svc-acct
@@ -22,14 +25,16 @@ export POLICY_ARN=$(aws iam list-policies \
   --attach-policy-arn $POLICY_ARN \
   --approve
 
-export EXTERNALDNS_NS=external_dns
-eksctl create iamserviceaccount \
+    eksctl create iamserviceaccount \
   --cluster $EKS_CLUSTER_NAME \
-  --name "external-dns" \
-  --namespace default \
-  --override-existing
+  --name $IAM_SVC_ACCT \
+  --namespace efs \
   --attach-policy-arn $POLICY_ARN \
   --approve
+
+kubectl create --filename externalDNS/externaldns-with-rbac.yaml     
+
+kubectl create --filename externalDNS/externaldns-with-rbac-drose-cluster2.yaml   
 
   export ZONE_ID=$(aws route53 list-hosted-zones-by-name --output json \
   --dns-name $DNS_NAME --query "HostedZones[0].Id" --out text)
