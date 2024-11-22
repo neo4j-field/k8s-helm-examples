@@ -1,0 +1,83 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: drose-tc4
+  tags: {Department: jpmc-rosenblum}
+  region: us-east-2
+  version: "1.30"
+
+
+kubernetesNetworkConfig:
+  ipFamily: IPv4 # or IPv6
+
+addons:
+  - name: vpc-cni
+    version: latest
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+  - name: aws-ebs-csi-driver
+  # - name: aws-efs-csi-driver
+
+iam:
+  withOIDC: true
+
+vpc:
+  cidr: 10.40.0.0/16
+  clusterEndpoints:
+    publicAccess: true
+    privateAccess: true
+
+managedNodeGroups:
+  - name: minimal3
+    instanceType: r6a.xlarge
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 3
+    taints:
+    - key: "node.cilium.io/agent-not-ready"
+      value: "true"
+      effect: "NoExecute"    
+    minSize: 1
+    maxSize: 5
+    labels: {role: eks-8xl}
+    tags:
+      {Department: sony-rosenblum}
+    volumeSize: 100
+    availabilityZones: ["us-east-2a", "us-east-2b", "us-east-2c"]
+    # ssh:
+    #   allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+    #   publicKeyName: davidrosenblum2    
+  - name: test1
+    instanceType: t3.large
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 3
+    taints:
+    - key: "node.cilium.io/agent-not-ready"
+      value: "true"
+      effect: "NoExecute"    
+    minSize: 1
+    maxSize: 5
+    labels: {role: eks-8xl}
+    tags:
+      {Department: sony-rosenblum}
+    volumeSize: 100
+    availabilityZones: ["us-east-2a", "us-east-2b", "us-east-2c"]
+    # ssh:
+    #   allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+    #   publicKeyName: davidrosenblum2    

@@ -1,21 +1,72 @@
 # AKS deployment examples
 
 ## Pre-requisites
-- Verify that you have a Resource Group
-    - ```az group create --name jhair-RG```
-- Set defaults
-    - ```az configure --defaults group=jhair-RG```
-    - ```az configure --defaults location=eastus```
+- Login to Azure CLI
+    - ```az login``
+    - reply back your subscription
+- Set default location/region
+    - ```az configure --defaults location=eastus```    
+- Create/Verify the you have a Resource Group
+    - ```az group create --name <resource-group-name>-RG```
+- Set default resource group
+    - ```az configure --defaults group=<resource-group-name>-RG```
+
 - List defaults
     - ```az configure -l```
 
+## Look at hybrid-gds/scripts/startall.sh for copolete example
 
 ## [Neo4j 3 node cluster within 1 AKS cluster](neo4j-core-cluster.yaml)
 Neo4j docs - https://neo4j.com/docs/operations-manual/current/kubernetes/quickstart-cluster/
+
+az aks create -g drose-rg --name drose-demo2a --node-count=2   --os-sku Ubuntu \
+--load-balancer-sku Standard \
+--nodepool-name agentpool1 --node-osdisk-size 128 --node-vm-size Standard_D4ds_v5 \
+--enable-addons azure-keyvault-secrets-provider --enable-oidc-issuer \
+--enable-workload-identity --generate-ssh-keys
+
+az aks nodepool add --cluster-name drose-demo2a --name neo4jpool1 --resource-group drose-rg --mode User --node-count 3 --node-vm-size Standard_D4as_v5
+
 ### Pre-req:
 - Azure resource group exists
 - AKS cluster exists (e.g. neo4j-aks-cluster)
 - Namespace within the AKS cluster exists (e.g neo4j)
+
+### Create Simple Standalone
+```
+# install the simple standalone chart
+helm upgrade -i simplesa  neo4j/neo4j -f  simple_standalone.yaml
+#look at the pods
+kubectl get po
+#describe the pods
+kubectl describe po simplesa-0
+kubectl get svc
+
+```
+
+### Create Standalone with Bloom and GDS
+```
+# install the simple standalone chart
+# populate licenses/gds.license and licenses/bloom.license with actual licenses
+./createLicenseSecrets.sh
+helm upgrade -i standalone  neo4j/neo4j -f  standalone.yaml
+#look at the pods
+kubectl get po
+#describe the pods
+kubectl describe po standalone-0
+
+```
+### Create Load Balancer
+```
+
+kubectl apply -f standalone-lb.yaml
+kubectl get svc 
+#might say pending
+kubectl describe svc standalone-lb 
+#look for errors
+
+```
+
 
 ### Create the cluster
 ```
