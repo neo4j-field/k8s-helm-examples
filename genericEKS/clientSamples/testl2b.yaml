@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Service
+metadata:
+  #annotations:
+    #service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    #service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses: 10.10.107.224
+    #service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+    #below is my us-east-2a private subnet
+    #service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-0a314fd1814f79a41"
+    #meta.helm.sh/release-name: multi2
+    #meta.helm.sh/release-namespace: neo4j
+  # labels:
+  #   app: multismall
+  #   app.kubernetes.io/managed-by: Helm
+  #   eks.amazonaws.com/nodetype: primary
+  #   helm.neo4j.com/clustering: "true"
+  #   helm.neo4j.com/instance: multi2
+  #   helm.neo4j.com/neo4j.name: multismall
+  #   helm.neo4j.com/service: internals
+  name: multi2-int2
+  namespace: neo4j
+spec:
+  # clusterIP: Nonekk 
+  # clusterIPs:
+  # - None
+  #internalTrafficPolicy: Cluster
+  loadBalancerIP: 10.10.107.224
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: tcp-backup
+    port: 6362
+    protocol: TCP
+    targetPort: 6362
+  - name: tcp-bolt
+    port: 7687
+    protocol: TCP
+    targetPort: 7687
+  - name: tcp-http
+    port: 7474
+    protocol: TCP
+    targetPort: 7474
+  - name: tcp-boltrouting
+    port: 7688
+    protocol: TCP
+    targetPort: 7688
+  - name: tcp-discovery
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  - name: tcp-raft
+    port: 7000
+    protocol: TCP
+    targetPort: 7000
+  - name: tcp-tx
+    port: 6000
+    protocol: TCP
+    targetPort: 6000
+  publishNotReadyAddresses: true
+  selector:
+    app: multismall
+    helm.neo4j.com/instance: multi2
+  sessionAffinity: None
+  type: NodePort

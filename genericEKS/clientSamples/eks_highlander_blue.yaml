@@ -1,0 +1,62 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: drose-highlander-blue
+  tags: {Department: jpmc-rosenblum}
+  region: us-east-2
+  version: "1.28"
+
+
+kubernetesNetworkConfig:
+  ipFamily: IPv4 # or IPv6
+
+addons:
+  - name: vpc-cni
+    version: latest
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+  - name: aws-ebs-csi-driver
+  # - name: aws-efs-csi-driver
+
+iam:
+  withOIDC: true
+
+vpc:
+  subnets:
+    public:
+      us-east-2a: { id: subnet-0c6c3b8d8f80a3522 }
+      us-east-2b: { id: subnet-0fb3c7f734ea25e35 }
+      us-east-2c: { id: subnet-0caad94f3693bae8a }
+    private:
+      us-east-2a: { id: subnet-0a314fd1814f79a41 }
+      us-east-2b: { id: subnet-04852940fd3b04f16 }
+      us-east-2c: { id: subnet-0c0249d8f4cd53f2f }
+
+
+
+managedNodeGroups:
+  - name: minimal3
+    instanceType: m6a.xlarge
+    iam:
+      withAddonPolicies:
+        ebs: true
+        fsx: true
+        efs: true
+        awsLoadBalancerController: true
+        xRay: true
+        cloudWatch: true
+    desiredCapacity: 3
+    minSize: 1
+    maxSize: 5
+    labels: {role: eks-8xl}
+    tags:
+      {Department: jpmc-rosenblum}
+    volumeSize: 100
+    availabilityZones: ["us-east-2a", "us-east-2b", "us-east-2c"]
+    ssh:
+      allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
+      publicKeyName: davidrosenblum2   
+ 
