@@ -9,7 +9,7 @@ neo4j:
   # Uncomment to use enterprise edition
   edition: "enterprise"
   acceptLicenseAgreement: "yes"
-  minimumClusterSize: "1"
+  minimumClusterSize: "3"
 
 services:
   neo4j:
