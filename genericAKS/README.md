@@ -2,7 +2,7 @@
 
 ## Pre-requisites
 - Login to Azure CLI
-    - ```az login``
+    - ```az login```
     - reply back your subscription
 - Set default location/region
     - ```az configure --defaults location=eastus```    
