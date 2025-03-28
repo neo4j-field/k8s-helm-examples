@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    #service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 7687, 443
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-0c6c3b8d8f80a3522"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-2:766746056086:certificate/adc2abe7-6bf5-40c4-bdef-e001c8d91993
+    external-dns.alpha.kubernetes.io/hostname: drose-standalone.neo4j-field.com
+    #service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
+  labels:
+    #app: hybridgds
+    helm.neo4j.com/instance: apocext
+  name: standalone-http-lb
+  namespace: "efs"
+spec:
+  #loadBalancerIP: 10.151.8.87
+  externalTrafficPolicy: Local
+  ports:
+  - name: bolt
+    port: 7687
+    protocol: TCP
+    targetPort: 7687
+  - name: http
+    port: 443
+    protocol: TCP
+    targetPort: 7474
+  selector:
+    helm.neo4j.com/instance: apocext
+    #app: hybridgds
+  sessionAffinity: None
+  type: LoadBalancer

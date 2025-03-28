@@ -1,0 +1,190 @@
+neo4j:
+  name: "standalone"
+  resources:
+    cpu: "1.100"
+    memory: "5G"
+  # Uncomment to set the initial password
+  #password: "Neo4j123"
+  passwordFromSecret: "neo4jpwd"
+  offlineMaintenanceModeEnabled: false
+  # Uncomment to use enterprise edition
+  edition: "enterprise"
+  acceptLicenseAgreement: "yes"
+  minimumClusterSize: "1"
+
+image:
+  imagePullPolicy: "Always"
+  customImage: "davidlrosenblum/neo4jpocexgds:5.26.2-enterprise"
+
+services:
+  neo4j:
+    # Do not create the LB; Create LB in separate manifest
+    enabled: false
+
+# env:
+#   NEO4J_PLUGINS: '["apoc", "apoc-extended", "graph-data-science", "bloom", "genai"]'
+
+config:
+  server.backup.enabled: "true"
+  server.config.strict_validation.enabled: "false"
+  db.logs.query.enabled: "OFF"
+  gds.enterprise.license_file: "/licenses/local/gds.license"
+  dbms.bloom.license_file: "/licenses/local/bloom.license"
+  dbms.security.procedures.unrestricted: "apoc.*,bloom.*,gds.*,genai.*"
+  server.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
+  dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
+  server.directories.plugins: "/var/lib/neo4j/plugins"
+  server.memory.heap.initial_size: "2G"
+  server.memory.heap.max_size: "2G"
+  server.memory.pagecache.size: "1500M"
+  server.directories.transaction.logs.root: /transactions
+  dbms.security.authentication_providers: "oidc-azure,native"
+  dbms.security.authorization_providers: "oidc-azure,native"
+  dbms.security.oidc.azure.display_name: "Azure"
+  dbms.security.oidc.azure.auth_flow: "pkce"
+  dbms.security.oidc.azure.well_known_discovery_uri: "https://login.microsoftonline.com/54e85725-ed2a-49a4-a19e-11c8d29f9a0f/v2.0/.well-known/openid-configuration"
+  
+  #below for testing use only - TX log retention must match backup strategy and/or time for store copy
+  db.tx_log.rotation.retention_policy: "1 hours"
+  # Configure the access_token
+  #dbms.security.oidc.azure.config: "principal=preferred_username;code_challenge_method=S256;token_type_principal=access_token;token_type_authentication=access_token"
+  dbms.security.oidc.azure.config: "principal=unique_name;code_challenge_method=S256;token_type_principal=access_token;token_type_authentication=access_token"
+  dbms.security.oidc.azure.audience: "api://27ed29e1-c50a-4bbf-b1ce-ee9f29068b44"
+  dbms.security.oidc.azure.issuer: "https://sts.windows.net/54e85725-ed2a-49a4-a19e-11c8d29f9a0f/"
+  dbms.security.oidc.azure.params: "client_id=27ed29e1-c50a-4bbf-b1ce-ee9f29068b44;response_type=code;scope=openid profile email api://27ed29e1-c50a-4bbf-b1ce-ee9f29068b44/neo4jtoken"
+  dbms.security.oidc.azure.token_endpoint: "https://login.microsoftonline.com/54e85725-ed2a-49a4-a19e-11c8d29f9a0f/oauth2/v2.0/token"
+
+  #id token
+  # dbms.security.oidc.azure.audience: "27ed29e1-c50a-4bbf-b1ce-ee9f29068b44"
+  # dbms.security.oidc.azure.params: "$(cat /licenses/local/params)"
+  # dbms.security.oidc.azure.config: "token_type_principal=id_token;token_type_authentication=id_token"
+
+  dbms.security.oidc.azure.claims.username: "sub"
+  dbms.security.oidc.azure.claims.groups: "roles"
+  dbms.security.logs.oidc.jwt_claims_at_debug_level_enabled: "true"
+  dbms.security.require_local_user: "false"
+
+apoc_config:
+  apoc.export.file.enabled: "true"
+  apoc.import.file.enabled: "true"
+  apoc.trigger.enabled: "true"
+
+additionalVolumeMounts:
+  # This is to map the license configmap
+  - name: license-keys
+    mountPath: /licenses/local
+    readOnly: true
+
+additionalVolumes:
+  - name: license-keys
+    configMap:
+      name: license-config
+
+volumes:
+  data:
+    mode: "dynamic"
+    dynamic:
+      # In GKE;
+      # * premium-rwo provisions SSD disks (recommended)
+      # * standard-rwo provisions balanced SSD-backed disks
+      # * standard provisions HDD disks
+      #storageClassName: premium-rwo
+      storageClassName: "neo4j-ssd"
+      requests:
+        storage: 100Gi
+  transactions:
+      mode: "dynamic"
+      dynamic:
+        storageClassName: "neo4j-ssd"
+        accessModes:
+          - ReadWriteOnce
+        requests:
+          storage: 50Gi
+  # optional - create mount for import 
+logging:
+  serverLogsXml: |-  
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!--
+
+          Copyright (c) "Neo4j"
+          Neo4j Sweden AB [https://neo4j.com]
+          This file is a commercial add-on to Neo4j Enterprise Edition.
+
+      -->
+      <!--
+          This is a log4j 2 configuration file.
+
+          It is highly recommended to keep the original "debug.log" as is, to make sure enough data is captured in case
+          of errors in a format that neo4j developers can work with.
+
+          All configuration values can be queried with the lookup prefix "config:". You can for example, resolve
+          the path to your neo4j home directory with ${config:dbms.directories.neo4j_home}.
+
+          Please consult https://logging.apache.org/log4j/2.x/manual/configuration.html for instructions and
+          available configuration options.
+      -->
+      <Configuration status="ERROR" monitorInterval="30" packages="org.neo4j.logging.log4j">
+          <Appenders>
+              <!-- Default debug.log, please keep -->
+              <RollingRandomAccessFile name="DebugLog" fileName="${config:server.directories.logs}/debug.log"
+                                      filePattern="$${config:server.directories.logs}/debug.log.%02i">
+                  <Neo4jDebugLogLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ}{GMT+0} %-5p [%c{1.}] %m%n"/>
+                  <Policies>
+                      <SizeBasedTriggeringPolicy size="20 MB"/>
+                  </Policies>
+                  <DefaultRolloverStrategy fileIndex="min" max="7"/>
+              </RollingRandomAccessFile>
+
+              <RollingRandomAccessFile name="HttpLog" fileName="${config:server.directories.logs}/http.log"
+                                      filePattern="$${config:server.directories.logs}/http.log.%02i">
+                  <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ}{GMT+0} %-5p %m%n"/>
+                  <Policies>
+                      <SizeBasedTriggeringPolicy size="20 MB"/>
+                  </Policies>
+                  <DefaultRolloverStrategy fileIndex="min" max="5"/>
+              </RollingRandomAccessFile>
+
+              <RollingRandomAccessFile name="QueryLog" fileName="${config:server.directories.logs}/query.log"
+                                      filePattern="$${config:server.directories.logs}/query.log.%02i">
+                  <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ}{GMT+0} %-5p %m%n"/>
+                  <Policies>
+                      <SizeBasedTriggeringPolicy size="20 MB"/>
+                  </Policies>
+                  <DefaultRolloverStrategy fileIndex="min" max="7"/>
+              </RollingRandomAccessFile>
+
+              <RollingRandomAccessFile name="SecurityLog" fileName="${config:server.directories.logs}/security.log"
+                                      filePattern="$${config:server.directories.logs}/security.log.%02i">
+                  <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ}{GMT+0} %-5p %m%n"/>
+                  <Policies>
+                      <SizeBasedTriggeringPolicy size="20 MB"/>
+                  </Policies>
+                  <DefaultRolloverStrategy fileIndex="min" max="7"/>
+              </RollingRandomAccessFile>
+          </Appenders>
+
+          <Loggers>
+              <!-- Log levels. One of DEBUG, INFO, WARN, ERROR or OFF -->
+
+              <!-- The debug log is used as the root logger to catch everything -->
+              <Root level="INFO">
+                  <AppenderRef ref="DebugLog"/> <!-- Keep this -->
+              </Root>
+
+              <!-- The query log, must be named "QueryLogger" -->
+              <Logger name="QueryLogger" level="INFO" additivity="false">
+                  <AppenderRef ref="QueryLog"/>
+              </Logger>
+
+              <!-- The http request log, must be named "HttpLogger" -->
+              <Logger name="HttpLogger" level="INFO" additivity="false">
+                  <AppenderRef ref="HttpLog"/>
+              </Logger>
+
+              <!-- The security log, must be named "SecurityLogger" -->
+              <Logger name="SecurityLogger" level="DEBUG" additivity="false">
+                  <AppenderRef ref="SecurityLog"/>
+              </Logger>
+          </Loggers>
+      </Configuration>
+        

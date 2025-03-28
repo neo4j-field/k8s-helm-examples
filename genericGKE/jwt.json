@@ -1,0 +1,146 @@
+[
+    {
+      "addIns": [],
+      "api": {
+        "acceptMappedClaims": null,
+        "knownClientApplications": [],
+        "oauth2PermissionScopes": [
+          {
+            "adminConsentDescription": "neo4jtoken",
+            "adminConsentDisplayName": "neo4jtoken",
+            "id": "581acf41-c5ee-4b75-954b-8f197a6773c2",
+            "isEnabled": true,
+            "type": "User",
+            "userConsentDescription": "neo4jtoken",
+            "userConsentDisplayName": "neo4jtoken",
+            "value": "neo4jtoken"
+          }
+        ],
+        "preAuthorizedApplications": [],
+        "requestedAccessTokenVersion": null
+      },
+      "appId": "27ed29e1-c50a-4bbf-b1ce-ee9f29068b44",
+      "appRoles": [
+        {
+          "allowedMemberTypes": [
+            "User",
+            "Application"
+          ],
+          "description": "admin",
+          "displayName": "admin",
+          "id": "989408d5-8ae1-4a53-a66c-1ce5945bcdd0",
+          "isEnabled": true,
+          "origin": "Application",
+          "value": "admin"
+        }
+      ],
+      "applicationTemplateId": null,
+      "certification": null,
+      "createdDateTime": "2025-02-24T19:24:21Z",
+      "defaultRedirectUri": null,
+      "deletedDateTime": null,
+      "description": null,
+      "disabledByMicrosoftStatus": null,
+      "displayName": "drose-stnd-alone2",
+      "groupMembershipClaims": "SecurityGroup",
+      "id": "73b5ba83-4d06-45a5-b305-4d7d535de931",
+      "identifierUris": [
+        "api://27ed29e1-c50a-4bbf-b1ce-ee9f29068b44"
+      ],
+      "info": {
+        "logoUrl": null,
+        "marketingUrl": null,
+        "privacyStatementUrl": null,
+        "supportUrl": null,
+        "termsOfServiceUrl": null
+      },
+      "isDeviceOnlyAuthSupported": null,
+      "isFallbackPublicClient": null,
+      "keyCredentials": [],
+      "nativeAuthenticationApisEnabled": null,
+      "notes": null,
+      "optionalClaims": {
+        "accessToken": [
+          {
+            "additionalProperties": [],
+            "essential": false,
+            "name": "groups",
+            "source": null
+          }
+        ],
+        "idToken": [
+          {
+            "additionalProperties": [],
+            "essential": false,
+            "name": "groups",
+            "source": null
+          }
+        ],
+        "saml2Token": [
+          {
+            "additionalProperties": [],
+            "essential": false,
+            "name": "groups",
+            "source": null
+          }
+        ]
+      },
+      "parentalControlSettings": {
+        "countriesBlockedForMinors": [],
+        "legalAgeGroupRule": "Allow"
+      },
+      "passwordCredentials": [],
+      "publicClient": {
+        "redirectUris": []
+      },
+      "publisherDomain": "neotechnology.com",
+      "requestSignatureVerification": null,
+      "requiredResourceAccess": [
+        {
+          "resourceAccess": [
+            {
+              "id": "e1fe6dd8-ba31-4d61-89e7-88639da4683d",
+              "type": "Scope"
+            }
+          ],
+          "resourceAppId": "00000003-0000-0000-c000-000000000000"
+        }
+      ],
+      "samlMetadataUrl": null,
+      "serviceManagementReference": null,
+      "servicePrincipalLockConfiguration": {
+        "allProperties": true,
+        "credentialsWithUsageSign": true,
+        "credentialsWithUsageVerify": true,
+        "identifierUris": false,
+        "isEnabled": true,
+        "tokenEncryptionKeyId": true
+      },
+      "signInAudience": "AzureADMultipleOrgs",
+      "spa": {
+        "redirectUris": [
+          "https://drose-standalone.neo4j-field.com/bloom/?idp_id=azure&auth_flow_step=redirect_uri",
+          "https://drose-standalone.neo4j-field.com/browser/?idp_id=azure&auth_flow_step=redirect_uri"
+        ]
+      },
+      "tags": [],
+      "tokenEncryptionKeyId": null,
+      "uniqueName": null,
+      "verifiedPublisher": {
+        "addedDateTime": null,
+        "displayName": null,
+        "verifiedPublisherId": null
+      },
+      "web": {
+        "homePageUrl": null,
+        "implicitGrantSettings": {
+          "enableAccessTokenIssuance": false,
+          "enableIdTokenIssuance": true
+        },
+        "logoutUrl": null,
+        "redirectUriSettings": [],
+        "redirectUris": []
+      }
+    }
+  ]
+  

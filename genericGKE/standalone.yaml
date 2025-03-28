@@ -18,7 +18,7 @@ services:
     enabled: false
 
 env:
-  NEO4J_PLUGINS: '["apoc", "graph-data-science", "bloom", "genai"]'
+  NEO4J_PLUGINS: '["apoc", "apoc-extended", "graph-data-science", "bloom", "genai"]'
 
 config:
   server.backup.enabled: "true"

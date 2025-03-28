@@ -1,0 +1,3 @@
+az ad app create --display-name drose-stnd-alone3 --sign-in-audience AzureADMultipleOrgs \
+--web-redirect-uris  https://drose-standalone.neo4j-field.com/bloom/?idp_id=azure&auth_flow_step=redirect_uri https://drose-standalone.neo4j-field.com/browser/?idp_id=azure&auth_flow_step=redirect_uri \
+
