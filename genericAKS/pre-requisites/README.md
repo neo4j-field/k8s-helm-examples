@@ -1,6 +1,23 @@
 # AKS deployment examples
 
-## Pre-requisites
+## Windows Pre-requisites
+- Get Kubectl
+    - ```https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/```
+- Get helm
+    - ```https://github.com/helm/helm/releases```
+- Get Azure CLI
+    - ```https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-windows?tabs=azure-cli```
+
+## Mac Pre-requisites
+There are multiple ways on Mac, and I have used brew, shell scripts and untar/zip the exe and put on the path.  I have found that brew is just easier to keep up to date.  Helm and kubectl are updated frequently.
+- Get Kubectl
+    - ```https://kubernetes.io/docs/tasks/tools/install-kubectl-macos/```
+- Get helm
+    - ```https://helm.sh/docs/intro/install/```
+- Get Azure CLI
+    - ```https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-macos`
+
+## Azure Pre-requisites
 - Login to Azure CLI
     - ```az login```
     - reply back your subscription
@@ -14,7 +31,7 @@
 - List defaults
     - ```az configure -l```
 
-## Look at hybrid-gds/scripts/startall.sh for complete example
+## Look at hybrid-gds/scripts/startall.sh for copolete example
 
 ## [Neo4j 3 node cluster within 1 AKS cluster](neo4j-core-cluster.yaml)
 Neo4j docs - https://neo4j.com/docs/operations-manual/current/kubernetes/quickstart-cluster/
