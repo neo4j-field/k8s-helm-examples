@@ -1,4 +1,7 @@
 *cred*
 charts
+charts/*
 .DS_Store
 .DS_Store?
+neo4j
+neo4j/*
