@@ -223,3 +223,17 @@ az keyvault key create \
 
 
     az aks create --tags owner=drose --name multi-region-central-cluster --resource-group multi-region-rg --location centralus --auto-upgrade-channel stable --os-sku Ubuntu --node-vm-size Standard_D2as_v6 --node-count 2 --nodepool-name systempool1 --nodepool-tags owner=drose --min-count 1 --max-count 4 --enable-cluster-autoscaler --max-pods 250 --network-plugin azure --service-cidr 10.0.0.0/20 --dns-service-ip 10.0.0.10 --vnet-subnet-id /subscriptions/70bb2c8c-6c76-47c0-b6c9-82f0204f30ac/resourceGroups/multi-region-rg/providers/Microsoft.Network/virtualNetworks/multi-region-central-vnet/subnets/mrc-centralus-vnet-1 --pod-subnet-id /subscriptions/70bb2c8c-6c76-47c0-b6c9-82f0204f30ac/resourceGroups/multi-region-rg/providers/Microsoft.Network/virtualNetworks/multi-region-central-vnet/subnets/mrc-centralus-pod-1 --enable-addons monitoring --enable-workload-identity --enable-oidc-issuer --enable-syslog --enable-oidc-issuer --zones 1 2 3 --enable-azure-rbac --enable-aad --generate-ssh-keys
+
+
+
+    export VNET_NAME_EAST="multi-region-east-vnet"
+    export VNET_NAME_CENTRAL="multi-region-central-vnet"
+    export PEERING_CENTRAL_TO_EAST="vnet-central-to-east"
+    export PEERING_EAST_TO_CENTRAL="vnet-east-to-central"
+
+    
+"## Create peering from vnet-1 to vnet-2. ##
+az network vnet peering create --name $PEERING_CENTRAL_TO_EAST --vnet-name $VNET_NAME_CENTRAL --remote-vnet $VNET_NAME_EAST  --resource-group $RESOURCE_GROUP_NAME --allow-vnet-access --allow-forwarded-traffic
+
+## Create peering from vnet-2 to vnet-1. ##
+az network vnet peering create --name $PEERING_EAST_TO_CENTRAL --vnet-name $VNET_NAME_EAST --remote-vnet $VNET_NAME_CENTRAL --resource-group $RESOURCE_GROUP_NAME --allow-vnet-access --allow-forwarded-traffic

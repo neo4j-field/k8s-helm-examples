@@ -59,6 +59,7 @@ get-set-subnet() {
 
 }
 get-set-nodepool() {
+ set -x   
     RESOURCE_GROUP_NAME=$1
     CLUSTER_NAME=$2
     NODEPOOL_NAME=$3
@@ -66,7 +67,8 @@ get-set-nodepool() {
     VNET_SUBNET=$5
     POD_SUBNET=$6
     TAGS=$7
-set -x
+    ZONES="$8"
+
     NODEPOOL_TAGS=$TAGS
     MAX_PODS="250"
     aks_name=`az aks list --resource-group $RESOURCE_GROUP_NAME --query "[?contains(name,'$CLUSTER_NAME')].name" --output tsv`
@@ -89,7 +91,7 @@ set -x
             --max-count  6 \
             --min-count 3 \
             --node-vm-size $AKS_NODE_USER \
-            --zones 1 2 3 \
+            --zones $ZONES \
             --vnet-subnet-id $VNET_SUBNET \
             --pod-subnet-id $POD_SUBNET`
 
@@ -111,6 +113,7 @@ get-set-aks() {
     VNET_SUBNET=$4
     POD_SUBNET=$5
     TAGS=$6
+    ZONES=$7
 
     #does the cluster exist?
     aks_name=`az aks list --resource-group $RESOURCE_GROUP_NAME --query "[?contains(name,'$CLUSTER_NAME')].name" --output tsv`
@@ -124,7 +127,6 @@ get-set-aks() {
             OS_SKU="Ubuntu"
             AKS_NODE_SYSTEM="Standard_D2as_v6"
             AKS_NODE_COUNT="2"
-            ZONES="1 2 3"
             AAD_GROUP_ID="117c5f89-6a02-459d-b2a5-f74029e2250c"
             AAD_TENANT_ID="70bb2c8c-6c76-47c0-b6c9-82f0204f30ac"
             
@@ -170,7 +172,8 @@ fresh(){
    t=$1
    echo "fresh(): \$0 is $0"
    echo "fresh(): \$1 is $1"
-   echo "fresh(): \$t is $t"
+   echo "fresh(): \$2 is $2"
+   echo "fresh(): \$3 is $3"
    echo "fresh(): total args passed to me $#"
    echo "fresh(): all args (\$@) passed to me -\"$@\""
    echo "fresh(): all args (\$*) passed to me -\"$*\""
@@ -211,6 +214,7 @@ export NODE_POOL_NAME="neo4jpool1"
 export AKS_NODE_USER="Standard_D2as_v6"
 export AAD_GROUP_ID="117c5f89-6a02-459d-b2a5-f74029e2250c"
 export AAD_TENANT_ID="70bb2c8c-6c76-47c0-b6c9-82f0204f30ac"
+export ZONES="1 2 3"
 
 
 
@@ -224,6 +228,7 @@ echo Svc Princ ID = $SP_ID
 export VNET_ID=`get-set-vnet $RESOURCE_GROUP_NAME $LOCATION_EAST $TAGS $VNET_NAME_EAST $ADDRESS_PREFIX_VNET`
 echo vnet ID= $VNET_ID
 
+
 export SUBNET_NUMBER=1
 export SUBNET_VNET_1=`get-set-subnet $RESOURCE_GROUP_NAME $VNET_NAME_EAST ${SUBNET_MRC}"-"${LOCATION_EAST}"-vnet-"${SUBNET_NUMBER} "10.0.16.0/20"`
 echo subnet vnet1= $SUBNET_VNET_1
@@ -236,12 +241,33 @@ export SUBNET_POD_2=`get-set-subnet $RESOURCE_GROUP_NAME $VNET_NAME_EAST ${SUBNE
 echo subnet POD2= $SUBNET_POD_2
 export aks_return=`get-set-aks $RESOURCE_GROUP_NAME $AKS_CLUSTER_EAST $LOCATION_EAST $SUBNET_VNET_1 $SUBNET_POD_1 $TAGS`
 echo $aks_return
-# RESOURCE_GROUP_NAME=$1
-#     CLUSTER_NAME=$2
-#     NODEPOOL_NAME=$3
-#     $AKS_NODE_USER=$4
-#     VNET_SUBNET=$5
-#     POD_SUBNET=$6
-#     TAGS=$7
+# # RESOURCE_GROUP_NAME=$1
+# #     CLUSTER_NAME=$2
+# #     NODEPOOL_NAME=$3
+# #     $AKS_NODE_USER=$4
+# #     VNET_SUBNET=$5
+# #     POD_SUBNET=$6
+# #     TAGS=$7
 export pool_return=`get-set-nodepool $RESOURCE_GROUP_NAME $AKS_CLUSTER_EAST $NODE_POOL_NAME $AKS_NODE_USER $SUBNET_VNET_2 $SUBNET_POD_2 $TAGS`
+echo $pool_return
+
+export VNET_ID=`get-set-vnet $RESOURCE_GROUP_NAME $LOCATION_CENTRAL $TAGS $VNET_NAME_CENTRL $ADDRESS_PREFIX_VNET`
+echo vnet ID= $VNET_ID
+
+export SUBNET_NUMBER=1
+export SUBNET_VNET_1C=`get-set-subnet $RESOURCE_GROUP_NAME $VNET_NAME_CENTRAL ${SUBNET_MRC}"-"${LOCATION_CENTRAL}"-vnet-"${SUBNET_NUMBER} "10.0.16.0/20"`
+echo subnet vnet1= $SUBNET_VNET_1C
+export SUBNET_POD_1C=`get-set-subnet $RESOURCE_GROUP_NAME $VNET_NAME_CENTRAL ${SUBNET_MRC}"-"${LOCATION_CENTRAL}"-pod-"${SUBNET_NUMBER} "10.0.32.0/20"`
+echo subnet POD1= $SUBNET_POD_1C
+export SUBNET_NUMBER=2
+export SUBNET_VNET_2C=`get-set-subnet $RESOURCE_GROUP_NAME $VNET_NAME_CENTRAL ${SUBNET_MRC}"-"${LOCATION_CENTRAL}"-vnet-"${SUBNET_NUMBER} "10.0.48.0/20"`
+echo subnet VNET2= $SUBNET_VNET_2C
+export SUBNET_POD_2C=`get-set-subnet $RESOURCE_GROUP_NAME $VNET_NAME_CENTRAL ${SUBNET_MRC}"-"${LOCATION_CENTRAL}"-pod-"${SUBNET_NUMBER} "10.0.64.0/20"`
+echo subnet POD2= $SUBNET_POD_2C
+
+export ZONES="2 3"
+export aks_return=`get-set-aks $RESOURCE_GROUP_NAME $AKS_CLUSTER_CENTRAL $LOCATION_CENTRAL $SUBNET_VNET_1C $SUBNET_POD_1C $TAGS "${ZONES}"`
+echo $aks_return
+
+export pool_return=`get-set-nodepool $RESOURCE_GROUP_NAME $AKS_CLUSTER_CENTRAL $NODE_POOL_NAME $AKS_NODE_USER $SUBNET_VNET_2C $SUBNET_POD_2C $TAGS "${ZONES}" `
 echo $pool_return
