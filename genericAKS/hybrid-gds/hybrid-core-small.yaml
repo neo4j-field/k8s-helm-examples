@@ -7,7 +7,7 @@
 #clusterDomain: "neo4j.cluster.local"
 
 neo4j:
-  name: "playsmall"
+  name: "neo4j"
   resources:
     cpu: "1"
     memory: "5Gi"
@@ -24,7 +24,7 @@ neo4j:
     kubernetes.azure.com/nodepool-type: "primary"
 
 nodeSelector:
-  nodegroup: "playsmall"
+  nodegroup: "neo4j"
   #kubernetes.io/service-name: "playsmall"
 
 services:

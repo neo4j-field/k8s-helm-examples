@@ -7,7 +7,7 @@
 #clusterDomain: "neo4j.cluster.local"
 
 neo4j:
-  name: "playsmall"
+  name: "neo4j"
   resources:
     cpu: 1.5
     memory: "7G"
@@ -20,8 +20,11 @@ neo4j:
   acceptLicenseAgreement: "yes"
   minimumClusterSize: "3"
 
+  labels:
+    kubernetes.azure.com/nodepool-type: "secondary"
+
 nodeSelector:
-  nodegroup: "playsmall"
+  nodegroup: "neo4j"
 
 services:
   neo4j:

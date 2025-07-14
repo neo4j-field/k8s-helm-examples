@@ -10,15 +10,15 @@ echo "Azure default settings"
 az configure -l
 
 echo "Uninstalling pods..."
-helm uninstall playsmall-1 playsmall-2 playsmall-3
-helm uninstall playsmall-gds-1
+helm uninstall neo4j-core-1 neo4j-core-2 neo4j-core-3
+helm uninstall neo4j-gds-1
 #echo Sleeping 30 seconds
 #sleep 30
 
 # Delete load balancer
 echo "Deleting load balancers..."
-kubectl delete -f playsmall-lb.yaml --wait=false
-kubectl delete -f playsmall-gds1-lb.yaml --wait=false
+kubectl delete -f neo4j-core-lb.yaml --wait=false
+kubectl delete -f neo4j-gds-lb.yaml --wait=false
 
 #echo Delete/cleanup pods for core members
 #kubectl get pods -o=name | awk '/playsmall[0-9]-cleanup/{print $1}'| xargs kubectl delete -n efs 
@@ -32,10 +32,8 @@ kubectl delete -f playsmall-gds1-lb.yaml --wait=false
 echo "Deleting nodepool (${AKS_NODEPOOL_NAME}) from the cluster (${AKS_CLUSTER_NAME})..."
 az aks nodepool delete --cluster-name ${AKS_CLUSTER_NAME}  --nodepool-name ${AKS_NODEPOOL_NAME} --no-wait
 
-#echo "Deleting AKS cluster (not waiting)..."
-#az aks delete --name neo4j-aks-hybrid-cluster --no-wait --yes
-echo "Deleting AKS cluster (${AKS_CLUSTER_NAME})..."
-az aks delete --name ${AKS_CLUSTER_NAME} --yes
+echo "Deleting AKS cluster ${AKS_CLUSTER_NAME} (not waiting)..."
+az aks delete --name ${AKS_CLUSTER_NAME} --no-wait --yes
 
 #echo "The AKS cluster will be deleted in several minutes"
 
