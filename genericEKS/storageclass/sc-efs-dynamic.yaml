@@ -17,3 +17,7 @@ parameters:
   #gidRangeStart: "1000" # optional
   #gidRangeEnd: "2000" # optional
   #basePath: "/data" # optional
+mountOptions:
+  - tls
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
