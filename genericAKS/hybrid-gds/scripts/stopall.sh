@@ -1,4 +1,4 @@
-AKS_RESOURCE_GROUP=jhair-helm
+AKS_RESOURCE_GROUP=jhair-helm-rg
 AKS_REGION=eastus
 
 AKS_CLUSTER_NAME=neo4j-aks-hybrid-cluster

@@ -27,14 +27,12 @@ else
    echo "Resource Group, ${AKS_RESOURCE_GROUP}, exists"
 fi
 
-
 #
 # Node count creates a 'system node pool'
 #
 echo "Creating AKS cluster (${AKS_CLUSTER_NAME})..."
 az aks create --name ${AKS_CLUSTER_NAME} --resource-group ${AKS_RESOURCE_GROUP}
 # --enable-oidc-issuer
-exit
 
 # Get the cluster node resource group
 MC_RG_NAME="$(az aks show --name ${AKS_CLUSTER_NAME} --query nodeResourceGroup --output tsv)"
