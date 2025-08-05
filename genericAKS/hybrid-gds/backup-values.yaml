@@ -1,7 +1,7 @@
 neo4j:
 #   image: "neo4j/helm-charts-backup"
 #   imageTag: "5.18.0"
-  jobSchedule: "30 * * * *"
+  jobSchedule: "15 * * * *"
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
   backoffLimit: 3
@@ -13,7 +13,7 @@ backup:
 
   # k8s service name with port 6362 accessible
   # Backend will use playsmall-1-admin.default.svc.cluster.local:6362
-  databaseAdminServiceName:  "playsmall-1-admin"
+  databaseAdminServiceName:  "neo4j-core-1-admin"
   databaseNamespace: "neo4j-hybrid"
 
   database: "neo4j,system"
