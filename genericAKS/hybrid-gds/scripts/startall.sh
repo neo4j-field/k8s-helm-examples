@@ -63,6 +63,7 @@ echo "Sleeping 30 seconds to allow nodepool to start..."
 sleep 30
 
 echo "Creating Neo4j pods..."
+# helm upgrade -i neo4j-core-1  neo4j/neo4j --version 5.16.0 --namespace ${AKS_NAMESPACE} -f hybrid-core-small.yaml 
 helm upgrade -i neo4j-core-1  neo4j/neo4j --namespace ${AKS_NAMESPACE} -f hybrid-core-small.yaml 
 sleep 5
 helm upgrade -i neo4j-core-2  neo4j/neo4j --namespace ${AKS_NAMESPACE} -f hybrid-core-small.yaml
@@ -81,20 +82,9 @@ kubectl apply -f neo4j-gds-lb.yaml
 # TODO Alter topology for neo4j DB to 3 PRIMARY 1 SECONDARY
 #ALTER DATABASE neo4j SET TOPOLOGY 3 PRIMARY 1 SECONDARY
 
-# Create backup schedule
-#helm install my-neo4j-backup . \
-    # --set neo4jaddr=neo4j-aks-hybrid-cluster.default.svc.cluster.local:6362 \
-    # --set bucket=jhairstorage \
-    # --set database="neo4j\,system" \
-    # --set cloudProvider=azure \
-    # --set secretName=neo4j-azure-credentials \
-    # --set jobSchedule="30 * * * *"
-#helm install jhair-backup neo4j/neo4j-admin -f backup-values.yaml
-
 echo "-------------------------------------------------------"
 echo "kubectl get pods"
 kubectl get pods
 echo
 echo "kubectl get services"
 kubectl get services
-# kubectl run --rm -it --image "neo4j:5.16.0-enterprise" cypher-shell -- cypher-shell -a "neo4j://playsmall-3.default.svc.cluster.local:7687" -u neo4j -p "my-password"
