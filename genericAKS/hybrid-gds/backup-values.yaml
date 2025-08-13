@@ -1,7 +1,7 @@
 neo4j:
 #   image: "neo4j/helm-charts-backup"
 #   imageTag: "5.18.0"
-  jobSchedule: "15 * * * *"
+  jobSchedule: "*/5 * * * *"
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
   backoffLimit: 3
@@ -9,21 +9,25 @@ neo4j:
 backup:
   # Bucket name to upload backups
   #bucketName: "azure-k8s-backup"
-  bucketName: "helm-backup-test"
+  bucketName: "backups"
 
   # k8s service name with port 6362 accessible
-  # Backend will use playsmall-1-admin.default.svc.cluster.local:6362
+  # Backend will use neo4j-core-1-admin.default.svc.cluster.local:6362
   databaseAdminServiceName:  "neo4j-core-1-admin"
   databaseNamespace: "neo4j-hybrid"
 
   database: "neo4j,system"
 
   cloudProvider: "azure"
-
   # To access the bucket
   # K8s secret with the cloud credentials pair - secret must contain 'credentials'
   secretName: "azurecred"
   secretKeyName: "credentials"
+
+  # Enable cloud-native differential backups
+  preferDiffAsParent: true
+  type: "AUTO"  # First backup will be FULL, subsequent ones DIFF
+  fallbackToFull: false
 
 consistencyCheck:
   # True - will run consistency check report and both the backup and report will be uploaded to the backup
