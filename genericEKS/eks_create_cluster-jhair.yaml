@@ -2,10 +2,10 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: jhair
+  name: jhair-cluster
   tags: {Department: my-dept}
   region: us-east-2
-  version: "1.29"
+  version: latest
 
 
 kubernetesNetworkConfig:
@@ -48,7 +48,7 @@ managedNodeGroups:
     tags:
       {Department: my-dept}
     volumeSize: 100
-    availabilityZones: ["us-east-1a", "us-east-1b", "us-east-1c"]
+    availabilityZones: ["us-east-2a", "us-east-2b", "us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
   - name: hybridgds
@@ -68,7 +68,7 @@ managedNodeGroups:
     tags:
       {Department: my-dept}
     volumeSize: 100
-    availabilityZones: ["us-east-1a", "us-east-1b", "us-east-1c"]
+    availabilityZones: ["us-east-2a", "us-east-2b", "us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
   - name: hybridgdsarm
@@ -88,7 +88,7 @@ managedNodeGroups:
     tags:
       {Department: my-dept}
     volumeSize: 100
-    availabilityZones: ["us-east-1a", "us-east-1b", "us-east-1c"]
+    availabilityZones: ["us-east-2a", "us-east-2b", "us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
   - name: gdslarge
@@ -108,7 +108,7 @@ managedNodeGroups:
     tags:
       {Department: my-dept}
     volumeSize: 100
-    availabilityZones: ["us-east-1b", "us-east-1c"]
+    availabilityZones: ["us-east-2b", "us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
   - name: gdslargearm
@@ -128,7 +128,7 @@ managedNodeGroups:
     tags:
       {Department: my-dept}
     volumeSize: 100
-    availabilityZones: ["us-east-1a", "us-east-1c"]
+    availabilityZones: ["us-east-2a", "us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
   - name: gdstraining
@@ -148,7 +148,7 @@ managedNodeGroups:
     tags:
       {Department: gdstraining}
     volumeSize: 100
-    availabilityZones: ["us-east-1c"]
+    availabilityZones: ["us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
   - name: playsmall
@@ -168,6 +168,6 @@ managedNodeGroups:
     tags:
       {Department: my-dept}
     volumeSize: 100
-    availabilityZones: ["us-east-1a", "us-east-1c"]
+    availabilityZones: ["us-east-2a", "us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key

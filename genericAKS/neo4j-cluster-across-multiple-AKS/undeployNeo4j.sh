@@ -258,7 +258,7 @@ main() {
     # cleanup_coredns_config
     # cleanup_namespace
 
-    delete_clusterLB_resources
+    # delete_clusterLB_resources
 
     verify_cleanup
     

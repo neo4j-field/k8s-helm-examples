@@ -7,10 +7,10 @@ image:
 #clusterDomain: "neo4j.cluster.local"
 
 neo4j:
-  name: "playsmall"
+  name: "neo4j-hybrid-cluster"
   resources:
-    cpu: "1.500"
-    memory: "7G"
+    cpu: "1"
+    memory: "6G"
   # Uncomment to set the initial password
   #password: ""
   passwordFromSecret: "neo4jpwd"
@@ -23,18 +23,15 @@ neo4j:
   labels:
     eks.amazonaws.com/nodetype: "primary"
 
-
 nodeSelector:
-  eks.amazonaws.com/nodegroup: "playsmall"
+  eks.amazonaws.com/nodegroup: "neo4j-nodes"
 
-# env:
-#   NEO4J_PLUGINS: '["bloom", "apoc"]'
+env:
+   NEO4J_PLUGINS: '["bloom", "apoc"]'
 
 services:
   neo4j:
     enabled: false
-
-
 
 config:
   server.backup.enabled: "true"
@@ -57,7 +54,6 @@ config:
   server.metrics.csv.rotation.keep_number: "5"
   server.metrics.csv.rotation.compression: "NONE"
   db.tx_log.rotation.retention_policy: "1 hours"
-
 
 
 apoc_config:

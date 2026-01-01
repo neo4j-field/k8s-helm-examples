@@ -6,47 +6,90 @@ Neo4j docs - https://neo4j.com/docs/operations-manual/current/kubernetes/multi-d
 
 ### Create the network and AKS clusters
 - In resource group, create an Azure Virtual Network (VNet)
-    - ```az network vnet create  --name my-VNet  --resource-group jhair-RG  --address-prefixes 10.30.0.0/16```
-- Add four subnets to the VNet. Will be used to deploy on each AKS cluster
-    - ```az network vnet subnet create -g jhair-RG  --vnet-name my-VNet -n subnet1 --address-prefixes 10.30.1.0/24```
-    - ```az network vnet subnet create -g jhair-RG --vnet-name my-VNet -n subnet2 --address-prefixes 10.30.2.0/24```
-    - ```az network vnet subnet create -g jhair-RG --vnet-name my-VNet -n subnet3 --address-prefixes 10.30.3.0/24```
-    - ```az network vnet subnet create -g jhair-RG --vnet-name my-VNet -n subnet4 --address-prefixes 10.30.4.0/24```
-- Create AKS cluster 1
-    - Get subscription ID of subnet1
-        - ```az network vnet subnet show -g jhair-RG  --vnet-name my-VNet -n subnet1 --output json | grep .id```
-    - Create cluster 1
-        - ```az aks create --name jhair-neo4j-aks-cluster1 --node-count=5 --zones 1 --vnet-subnet-id "/subscriptions/2e471c7c-93ee-4af3-ae46-95fecbad4355/resourceGroups/jhair-RG/providers/Microsoft.Network/virtualNetworks/my-VNet/subnets/subnet1" -g jhair-RG```
-- Create AKS cluster 2
-    - Get subscription ID of subnet2
-        - ```az network vnet subnet show -g jhair-RG  --vnet-name my-VNet -n subnet2 --output json | grep .id```
-    - Create cluster 2
-        - ```az aks create --name jhair-neo4j-aks-cluster2 --node-count=5 --zones 1 --vnet-subnet-id "/subscriptions/2e471c7c-93ee-4af3-ae46-95fecbad4355/resourceGroups/jhair-RG/providers/Microsoft.Network/virtualNetworks/my-VNet/subnets/subnet2" -g jhair-RG```
-- Create AKS cluster 3
-    - Get subscription ID of subnet3
-        - ```az network vnet subnet show -g jhair-RG  --vnet-name my-VNet -n subnet3 --output json | grep .id```
-    - Create cluster 3
-        - ```az aks create --name jhair-neo4j-aks-cluster3 --node-count=5 --zones 1 --vnet-subnet-id "/subscriptions/2e471c7c-93ee-4af3-ae46-95fecbad4355/resourceGroups/jhair-RG/providers/Microsoft.Network/virtualNetworks/my-VNet/subnets/subnet3" -g jhair-RG```
+    ```bash
+    az network vnet create --name jhair-VNet --resource-group jhair-RG \
+    --location eastus --address-prefixes 10.30.0.0/16
+    ```
+- Add subnets to the VNet (1 for each AKS cluster)
+    ```bash
+    az network vnet subnet create -g jhair-RG  --vnet-name jhair-VNet -n subnet1 --address-prefixes 10.30.1.0/24
+    az network vnet subnet create -g jhair-RG --vnet-name jhair-VNet -n subnet2 --address-prefixes 10.30.2.0/24
+    az network vnet subnet create -g jhair-RG --vnet-name jhair-VNet -n subnet3 --address-prefixes 10.30.3.0/24
+    ```
+- Create AKS cluster 1 - EastUS
+    ```bash
+    #Get subscription ID of subnet1
+    SUB_ID1=`az network vnet subnet show -g jhair-RG --vnet-name jhair-VNet -n subnet1 --output tsv --query "id"`
+    az aks create --name jhair-neo4j-aks-cluster1 --resource-group jhair-RG \
+    --location eastus --auto-upgrade-channel stable \
+    --vnet-subnet-id $SUB_ID1 --zones 1 2 3 \
+    --enable-cluster-autoscaler --min-count 1 --max-count 4 --enable-addons monitoring
+
+    # Create a 'User' nodepool for applications
+    az aks nodepool add --cluster-name jhair-neo4j-aks-cluster1 --resource-group jhair-RG \
+    --nodepool-name neo4j --node-count 4 \
+    --enable-cluster-autoscaler --min-count 1 --max-count 6 \
+    --labels "nodegroup=neo4j" \
+    --node-vm-size Standard_E16as_v5
+    ```
+- Create AKS cluster 2 - WestUS
+    ```bash
+    #Get subscription ID of subnet2
+    SUB_ID2=`az network vnet subnet show -g jhair-RG  --vnet-name jhair-VNet -n subnet2 --output tsv --query "id"`
+    az aks create --name jhair-neo4j-aks-cluster2 --resource-group jhair-RG \
+    --location eastus --auto-upgrade-channel stable \
+    --vnet-subnet-id $SUB_ID1 --zones 1 2 3 \
+    --enable-cluster-autoscaler --min-count 1 --max-count 4 --enable-addons monitoring
+
+    # Create a 'User' nodepool for applications
+    az aks nodepool add --cluster-name jhair-neo4j-aks-cluster2 --resource-group jhair-RG \
+    --nodepool-name neo4j --node-count 4 \
+    --enable-cluster-autoscaler --min-count 1 --max-count 6 \
+    --labels "nodegroup=neo4j" \
+    --node-vm-size Standard_E16as_v5
+    ```
+- Create AKS cluster 3 - CentralUS
+    ```bash
+    # Get subscription ID of subnet3
+    SUB_ID3=`az network vnet subnet show -g jhair-RG  --vnet-name jhair-VNet -n subnet3 --output tsv --query "id"`
+    az aks create --name jhair-neo4j-aks-cluster3 --resource-group jhair-RG \
+    --location eastus --auto-upgrade-channel stable \
+    --vnet-subnet-id $SUB_ID3 --zones 1 2 3 \
+    --enable-cluster-autoscaler --min-count 1 --max-count 4 --enable-addons monitoring
+
+    # Create a 'User' nodepool for applications
+    az aks nodepool add --cluster-name jhair-neo4j-aks-cluster3 --resource-group jhair-RG \
+    --nodepool-name neo4j --node-count 4 \
+    --enable-cluster-autoscaler --min-count 1 --max-count 6 \
+    --labels "nodegroup=neo4j" \
+    --node-vm-size Standard_E16as_v5
+    ```
 
 ### Install Neo4j on within each AKS cluster
 - Configure kubectl to use AKS clusters
-    - ```az aks get-credentials --name jhair-neo4j-aks-cluster1 --admin -g jhair-RG```
-    - ```az aks get-credentials --name jhair-neo4j-aks-cluster2 --admin -g jhair-RG```
-    - ```az aks get-credentials --name jhair-neo4j-aks-cluster3 --admin -g jhair-RG```
+    ```bash
+    az aks get-credentials --name jhair-neo4j-aks-cluster1 --admin -g jhair-RG --overwrite-existing
+    az aks get-credentials --name jhair-neo4j-aks-cluster2 --admin -g jhair-RG --overwrite-existing
+    az aks get-credentials --name jhair-neo4j-aks-cluster3 --admin -g jhair-RG --overwrite-existing
+    ```
 
-- Install Neo4j on each AKS cluster
-    - Create 3 separate yaml files for each server within jhair-neo4j-aks-cluster1
-    - ```kubectl config use-context jhair-neo4j-aks-cluster1-admin```
-    - ```helm install server1 neo4j/neo4j -f Multi-AKS-cluster1.yaml```
-    - ```kubectl config use-context jhair-neo4j-aks-cluster2-admin```
-    - ```helm install server2 neo4j/neo4j -f Multi-AKS-cluster2.yaml```
-    - ```kubectl config use-context jhair-neo4j-aks-cluster3-admin```
-    - ```helm install server3 neo4j/neo4j -f Multi-AKS-cluster3.yaml```
+- Install Neo4j using 3 separate yaml files for each server per AKS cluster
+    ```bash
+    kubectl config use-context jhair-neo4j-aks-cluster1-admin
+    helm install server1 neo4j/neo4j -f Multi-AKS-cluster1.yaml
+
+    kubectl config use-context jhair-neo4j-aks-cluster2-admin
+    helm install server2 neo4j/neo4j -f Multi-AKS-cluster2.yaml
+
+    kubectl config use-context jhair-neo4j-aks-cluster3-admin
+    helm install server3 neo4j/neo4j -f Multi-AKS-cluster3.yaml
+    ```
 
 ### Cleanup
 To fully remove all data and resources:
-```
-az aks delete --name neo4j-aks-cluster1  --resource-group jhair-RG
-az aks delete --name neo4j-aks-cluster2  --resource-group jhair-RG
-az aks delete --name neo4j-aks-cluster3  --resource-group jhair-RG
+```sh
+az aks delete --name jhair-neo4j-aks-cluster1  --resource-group jhair-RG --no-wait --yes
+az aks delete --name jhair-neo4j-aks-cluster2  --resource-group jhair-RG --no-wait --yes
+az aks delete --name jhair-neo4j-aks-cluster3  --resource-group jhair-RG --no-wait --yes
+az network vnet delete --name jhair-VNet --resource-group jhair-RG
 ```
