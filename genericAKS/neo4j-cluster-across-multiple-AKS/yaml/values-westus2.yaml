@@ -1,0 +1,206 @@
+# Neo4j Helm Chart Values for westus2
+# Using Standard Azure CNI - Pod IPs routable across VNet peering
+# Init container registers pod IP in Azure Private DNS for direct RAFT communication
+
+image:
+  imagePullPolicy: IfNotPresent
+
+nodeSelector:
+  workload: neo4j
+
+podSpec:
+  tolerations:
+    - key: workload
+      operator: Equal
+      value: neo4j
+      effect: NoSchedule
+  
+  # Service account with Azure DNS permissions (Workload Identity)
+  serviceAccountName: neo4j-dns-updater
+  
+  # Required label for AKS Workload Identity to inject env vars
+  # NOTE: This label doesn't get applied to pod template by Helm chart
+  # The script patches the StatefulSet after deployment to add this label
+  labels:
+    azure.workload.identity/use: "true"
+
+  initContainers:
+    - name: register-dns
+      image: mcr.microsoft.com/azure-cli:latest
+      env:
+        - name: AZURE_CONFIG_DIR
+          value: "/tmp/.azure"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: RESOURCE_GROUP
+          value: "jhair_mrc_rg"
+        - name: DNS_ZONE
+          value: "neo4j.internal"
+        - name: REGION
+          value: "westus2"
+      command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Registering DNS for pod: $POD_NAME with IP: $POD_IP"
+          
+          # DNS record name: neo4j-eastus-0-raft -> neo4j-eastus-0-raft.neo4j.internal
+          RECORD_NAME="${POD_NAME}-raft"
+          
+          # Debug: show workload identity env vars
+          echo "=== Workload Identity Environment Variables ==="
+          echo "AZURE_CLIENT_ID: $AZURE_CLIENT_ID"
+          echo "AZURE_TENANT_ID: $AZURE_TENANT_ID"
+          echo "AZURE_FEDERATED_TOKEN_FILE: $AZURE_FEDERATED_TOKEN_FILE"
+          echo "AZURE_AUTHORITY_HOST: $AZURE_AUTHORITY_HOST"
+          
+          if [ -z "$AZURE_CLIENT_ID" ] || [ -z "$AZURE_TENANT_ID" ] || [ -z "$AZURE_FEDERATED_TOKEN_FILE" ]; then
+            echo "ERROR: Workload Identity environment variables not injected!"
+            echo "Make sure:"
+            echo "  1. Pod has label: azure.workload.identity/use=true"
+            echo "  2. Service account has annotation: azure.workload.identity/client-id"
+            echo "  3. Federated credential is configured correctly"
+            exit 1
+          fi
+          
+          if [ ! -f "$AZURE_FEDERATED_TOKEN_FILE" ]; then
+            echo "ERROR: Federated token file does not exist: $AZURE_FEDERATED_TOKEN_FILE"
+            exit 1
+          fi
+          
+          # Login using workload identity (federated token)
+          echo "Logging in with federated token..."
+          az login --federated-token "$(cat $AZURE_FEDERATED_TOKEN_FILE)" \
+            --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID"
+          
+          # Check if record exists
+          EXISTING=$(az network private-dns record-set a show \
+            --resource-group "$RESOURCE_GROUP" \
+            --zone-name "$DNS_ZONE" \
+            --name "$RECORD_NAME" \
+            --query "aRecords[0].ipv4Address" -o tsv 2>/dev/null || echo "")
+          
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "$POD_IP" ]; then
+            echo "Updating existing DNS record from $EXISTING to $POD_IP"
+            # Remove old record
+            az network private-dns record-set a remove-record \
+              --resource-group "$RESOURCE_GROUP" \
+              --zone-name "$DNS_ZONE" \
+              --record-set-name "$RECORD_NAME" \
+              --ipv4-address "$EXISTING" \
+              --keep-empty-record-set || true
+          fi
+          
+          if [ "$EXISTING" != "$POD_IP" ]; then
+            echo "Creating DNS record: $RECORD_NAME.$DNS_ZONE -> $POD_IP"
+            # Create record-set with TTL if it doesn't exist, then add record
+            az network private-dns record-set a create \
+              --resource-group "$RESOURCE_GROUP" \
+              --zone-name "$DNS_ZONE" \
+              --name "$RECORD_NAME" \
+              --ttl 60 2>/dev/null || true
+            az network private-dns record-set a add-record \
+              --resource-group "$RESOURCE_GROUP" \
+              --zone-name "$DNS_ZONE" \
+              --record-set-name "$RECORD_NAME" \
+              --ipv4-address "$POD_IP"
+          else
+            echo "DNS record already correct: $RECORD_NAME.$DNS_ZONE -> $POD_IP"
+          fi
+          
+          echo "DNS registration complete"
+
+neo4j:
+  name: "neo4j-westus2"
+  resources:
+    requests:
+      cpu: "4"
+      memory: "16Gi"
+    limits:
+      cpu: "8"
+      memory: "32Gi"
+  password: "ChangeThisPassword123!"
+  offlineMaintenanceModeEnabled: false
+  edition: "enterprise"
+  acceptLicenseAgreement: "yes"
+  minimumClusterSize: "3"
+
+  labels:
+    app: "neo4j-westus2"
+
+services:
+  neo4j:
+    enabled: false
+  default:
+    enabled: true
+
+env:
+  NEO4J_PLUGINS: '["apoc", "bloom"]'
+
+config:
+  initial.server.mode_constraint: "PRIMARY"
+  server.backup.enabled: "true"
+  
+  dbms.security.procedures.unrestricted: "apoc.*,bloom.*"
+  server.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
+  dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
+
+  server.directories.plugins: "/var/lib/neo4j/plugins"
+
+  # Discovery using LoadBalancer DNS (works through NAT)
+  dbms.cluster.discovery.resolver_type: "LIST"
+  dbms.cluster.discovery.version: "V2_ONLY"
+  dbms.cluster.discovery.v2.endpoints: "neo4j-eastus-internal-lb.neo4j.internal:6000,neo4j-westus2-internal-lb.neo4j.internal:6000,neo4j-centralus-internal-lb.neo4j.internal:6000"
+
+  # Transaction Service - LoadBalancer
+  server.cluster.listen_address: "0.0.0.0:6000"
+  server.cluster.advertised_address: "neo4j-westus2-internal-lb.neo4j.internal:6000"
+
+  # RAFT protocol - Direct pod-to-pod using dynamic DNS registration
+  # Init container registers: neo4j-westus2-0-raft.neo4j.internal -> pod IP
+  server.cluster.raft.listen_address: "0.0.0.0:7000"
+  server.cluster.raft.advertised_address: "neo4j-westus2-0-raft.neo4j.internal:7000"
+
+  # Client connections
+  server.http.enabled: "true"
+  server.http.listen_address: "0.0.0.0:7474"
+  server.http.advertised_address: "neo4j-westus2-public-lb.neo4j.internal:7474"
+
+  server.bolt.listen_address: "0.0.0.0:7687"
+  server.bolt.advertised_address: "neo4j-westus2-public-lb.neo4j.internal:7687"
+
+  # Cluster routing
+  dbms.routing.enabled: "true"
+  server.routing.listen_address: "0.0.0.0:7688"
+  server.routing.advertised_address: "neo4j-westus2-internal-lb.neo4j.internal:7688"
+  
+  # Memory settings for Standard_E16as_v5 (64GB RAM)
+  server.memory.heap.initial_size: "8g"
+  server.memory.heap.max_size: "8g"
+  server.memory.pagecache.size: "16g"
+
+volumes:
+  data:
+    mode: defaultStorageClass
+    defaultStorageClass:
+      requests:
+        storage: 100Gi
+
+startupProbe:
+  failureThreshold: 60
+  periodSeconds: 10
+
+readinessProbe:
+  failureThreshold: 10
+  initialDelaySeconds: 120
+  periodSeconds: 10
+
+livenessProbe:
+  enabled: false
