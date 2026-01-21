@@ -80,7 +80,7 @@
     {
       "id": "external-client",
       "type": "ellipse",
-      "x": 580,
+      "x": 473,
       "y": 100,
       "width": 200,
       "height": 80,
@@ -89,8 +89,8 @@
       "fillStyle": "solid",
       "strokeWidth": 2,
       "roughness": 0,
-      "version": 2,
-      "versionNonce": 332234506,
+      "version": 192,
+      "versionNonce": 63474262,
       "index": "a2",
       "isDeleted": false,
       "strokeStyle": "solid",
@@ -101,14 +101,14 @@
       "frameId": null,
       "roundness": null,
       "boundElements": [],
-      "updated": 1769008061481,
+      "updated": 1769008349846,
       "link": null,
       "locked": false
     },
     {
       "id": "external-client-text",
       "type": "text",
-      "x": 593.0740661621094,
+      "x": 486.0740661621094,
       "y": 120,
       "width": 173.85186767578125,
       "height": 50,
@@ -121,8 +121,8 @@
       "fillStyle": "solid",
       "strokeWidth": 1,
       "roughness": 0,
-      "version": 3,
-      "versionNonce": 292210646,
+      "version": 113,
+      "versionNonce": 1365048266,
       "index": "a3",
       "isDeleted": false,
       "strokeStyle": "solid",
@@ -132,8 +132,21 @@
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": [],
-      "updated": 1769008190658,
+      "boundElements": [
+        {
+          "id": "arrow-client-to-plb1",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-client-to-plb3",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-client-to-plb2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1769008377413,
       "link": null,
       "locked": false,
       "verticalAlign": "top",
@@ -225,8 +238,8 @@
       "fillStyle": "solid",
       "strokeWidth": 1,
       "roughness": 0,
-      "version": 2,
-      "versionNonce": 1108133002,
+      "version": 3,
+      "versionNonce": 1566382026,
       "index": "a6",
       "isDeleted": false,
       "strokeStyle": "solid",
@@ -236,8 +249,13 @@
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": [],
-      "updated": 1769008061482,
+      "boundElements": [
+        {
+          "id": "arrow-client-to-plb1",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1769008355119,
       "link": null,
       "locked": false,
       "verticalAlign": "top",
@@ -292,8 +310,8 @@
       "fillStyle": "solid",
       "strokeWidth": 1,
       "roughness": 0,
-      "version": 2,
-      "versionNonce": 1238868810,
+      "version": 3,
+      "versionNonce": 683104266,
       "index": "a8",
       "isDeleted": false,
       "strokeStyle": "solid",
@@ -303,8 +321,13 @@
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": [],
-      "updated": 1769008061482,
+      "boundElements": [
+        {
+          "id": "arrow-client-to-plb2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1769008377414,
       "link": null,
       "locked": false,
       "verticalAlign": "top",
@@ -328,8 +351,8 @@
       "roundness": {
         "type": 3
       },
-      "version": 2,
-      "versionNonce": 459181654,
+      "version": 3,
+      "versionNonce": 977803862,
       "index": "a9",
       "isDeleted": false,
       "strokeStyle": "solid",
@@ -338,8 +361,13 @@
       "seed": 1,
       "groupIds": [],
       "frameId": null,
-      "boundElements": [],
-      "updated": 1769008061482,
+      "boundElements": [
+        {
+          "id": "arrow-client-to-plb3",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1769008396674,
       "link": null,
       "locked": false
     },
@@ -359,8 +387,8 @@
       "fillStyle": "solid",
       "strokeWidth": 1,
       "roughness": 0,
-      "version": 2,
-      "versionNonce": 978889226,
+      "version": 3,
+      "versionNonce": 682084182,
       "index": "aA",
       "isDeleted": false,
       "strokeStyle": "solid",
@@ -370,8 +398,13 @@
       "groupIds": [],
       "frameId": null,
       "roundness": null,
-      "boundElements": [],
-      "updated": 1769008061482,
+      "boundElements": [
+        {
+          "id": "arrow-client-to-plb3",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1769008371023,
       "link": null,
       "locked": false,
       "verticalAlign": "top",
@@ -1758,10 +1791,10 @@
     {
       "id": "arrow-client-to-plb1",
       "type": "arrow",
-      "x": 580,
-      "y": 180,
-      "width": 340,
-      "height": 50,
+      "x": 473.798828125,
+      "y": 155.8056640625,
+      "width": 233.798828125,
+      "height": 74.1943359375,
       "strokeColor": "#1971c2",
       "backgroundColor": "transparent",
       "fillStyle": "solid",
@@ -1773,15 +1806,15 @@
           0
         ],
         [
-          -340,
-          50
+          -233.798828125,
+          74.1943359375
         ]
       ],
       "startArrowhead": null,
       "endArrowhead": "arrow",
       "lastCommittedPoint": null,
-      "version": 2,
-      "versionNonce": 310242454,
+      "version": 69,
+      "versionNonce": 373001866,
       "index": "ap",
       "isDeleted": false,
       "strokeStyle": "solid",
@@ -1792,19 +1825,27 @@
       "frameId": null,
       "roundness": null,
       "boundElements": [],
-      "updated": 1769008061482,
+      "updated": 1769008356121,
       "link": null,
       "locked": false,
-      "startBinding": null,
-      "endBinding": null
+      "startBinding": {
+        "elementId": "external-client-text",
+        "focus": 0.3931725258693091,
+        "gap": 12.275238037109375
+      },
+      "endBinding": {
+        "elementId": "plb-eastus-text",
+        "focus": -0.6841712700077445,
+        "gap": 15
+      }
     },
     {
       "id": "arrow-client-to-plb2",
       "type": "arrow",
-      "x": 680,
-      "y": 180,
-      "width": 0,
-      "height": 50,
+      "x": 575.5849609375,
+      "y": 184.736328125,
+      "width": 0.4150390625,
+      "height": 45.263671875,
       "strokeColor": "#1971c2",
       "backgroundColor": "transparent",
       "fillStyle": "solid",
@@ -1816,15 +1857,15 @@
           0
         ],
         [
-          0,
-          50
+          0.4150390625,
+          45.263671875
         ]
       ],
       "startArrowhead": null,
       "endArrowhead": "arrow",
       "lastCommittedPoint": null,
-      "version": 2,
-      "versionNonce": 1310019530,
+      "version": 123,
+      "versionNonce": 887342794,
       "index": "aq",
       "isDeleted": false,
       "strokeStyle": "solid",
@@ -1835,19 +1876,27 @@
       "frameId": null,
       "roundness": null,
       "boundElements": [],
-      "updated": 1769008061482,
+      "updated": 1769008378146,
       "link": null,
       "locked": false,
-      "startBinding": null,
-      "endBinding": null
+      "startBinding": {
+        "elementId": "external-client-text",
+        "focus": -0.02547874270773441,
+        "gap": 14.736328125
+      },
+      "endBinding": {
+        "elementId": "plb-westus2-text",
+        "focus": 0.13678807575927382,
+        "gap": 15
+      }
     },
     {
       "id": "arrow-client-to-plb3",
       "type": "arrow",
-      "x": 780,
-      "y": 180,
-      "width": 200,
-      "height": 50,
+      "x": 673.7702941894531,
+      "y": 156.93279266357422,
+      "width": 203.7232208251953,
+      "height": 70.3125,
       "strokeColor": "#1971c2",
       "backgroundColor": "transparent",
       "fillStyle": "solid",
@@ -1859,15 +1908,15 @@
           0
         ],
         [
-          200,
-          50
+          203.7232208251953,
+          70.3125
         ]
       ],
       "startArrowhead": null,
       "endArrowhead": "arrow",
       "lastCommittedPoint": null,
-      "version": 2,
-      "versionNonce": 1149233622,
+      "version": 123,
+      "versionNonce": 1035599062,
       "index": "ar",
       "isDeleted": false,
       "strokeStyle": "solid",
@@ -1878,11 +1927,19 @@
       "frameId": null,
       "roundness": null,
       "boundElements": [],
-      "updated": 1769008061482,
+      "updated": 1769008396675,
       "link": null,
       "locked": false,
-      "startBinding": null,
-      "endBinding": null
+      "startBinding": {
+        "elementId": "external-client-text",
+        "focus": -0.4153859286913756,
+        "gap": 13.8443603515625
+      },
+      "endBinding": {
+        "elementId": "plb-centralus",
+        "focus": 0.527766780639172,
+        "gap": 2.7547073364257812
+      }
     },
     {
       "id": "arrow-plb1-to-neo4j1",
