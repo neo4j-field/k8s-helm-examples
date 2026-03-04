@@ -6,3 +6,4 @@ charts/*
 neo4j
 neo4j/*
 *.log*
+*.claude
