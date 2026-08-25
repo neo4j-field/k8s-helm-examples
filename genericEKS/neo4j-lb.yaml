@@ -7,13 +7,13 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
     #service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, 7687
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
-    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-2:766746056086:certificate/b95f3f0e-ea19-41ed-b795-7ad79efc3098
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-2:766746056086:certificate/8781b4f1-e8b1-4d0b-ab05-1fe0523e527a
     #service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
 
   labels:
     #app: hybridgds
-    helm.neo4j.com/instance: playsmall-gds-1
-  name: playsmall-gds-1-lb
+    eks.amazonaws.com/nodetype: "primary"
+  name: neo4j-core-lb
   namespace: "efs"
 spec:
   #loadBalancerIP: 10.151.8.87
@@ -28,7 +28,7 @@ spec:
     protocol: TCP
     targetPort: 7474
   selector:
-    helm.neo4j.com/instance: playsmall-gds-1
-    #app: hybridgds
+    eks.amazonaws.com/nodetype: "primary"
+    app: playsmall
   sessionAffinity: None
   type: LoadBalancer

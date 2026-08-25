@@ -2,13 +2,24 @@
 image:
 #
   imagePullPolicy: "Always"
+  # Using the official multi-arch Neo4j Enterprise image (works on the ARM64
+  # nodegroups here) instead of a custom image -- the customImage below lived
+  # in a different AWS account (766746056086) with no cross-account ECR pull
+  # access granted to this cluster's account, so it 403'd. Unlike that custom
+  # image, the official one doesn't have GDS baked in, so NEO4J_PLUGINS below
+  # is uncommented to install it.
   #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-aeb281g240-5.9.0-enterprise-arm"
-  customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb211g254-5.13.0-enterprise-arm"
+  #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb211g254-5.13.0-enterprise-arm"
   #If a custom domain is in use
 #clusterDomain: "neo4j.cluster.local"
 
 neo4j:
-  name: "playsmall"
+  # Must match hybrid-core-small.yaml's neo4j.name: this sets the "app" label
+  # used by the chart's Kubernetes-based cluster-discovery service. A
+  # different name here isolates the GDS secondaries into their own discovery
+  # group -- they can only ever see each other, never the PRIMARY members, so
+  # they hang forever trying to join a cluster they can't discover.
+  name: "neo4j-hybrid-cluster"
   resources:
     cpu: 1.5
     memory: "7G"
@@ -22,10 +33,10 @@ neo4j:
   minimumClusterSize: "3"
 
 nodeSelector:
-  eks.amazonaws.com/nodegroup: "neo4j-nodes"
+  eks.amazonaws.com/nodegroup: "neo4j-ng"
 
-# env:
-#   NEO4J_PLUGINS: '["graph-data-science", "bloom", "apoc"]'
+env:
+  NEO4J_PLUGINS: '["graph-data-science", "bloom", "apoc"]'
 
 services:
   neo4j:
@@ -36,17 +47,17 @@ podSpec:
 
 config:
   server.backup.enabled: "true"
-  server.config.strict_validation: "false"
+  server.config.strict_validation.enabled: "false"
   db.logs.query.enabled: "OFF"
-  gds.enterprise.license_file: "/licenses/local/gds.license"
+  server.directories.licenses: "/licenses/local"
   dbms.bloom.license_file: "/licenses/local/bloom.license"
   dbms.security.procedures.unrestricted: "apoc.*,bloom.*,gds.*"
-  dbms.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
+  server.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
   dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
   server.directories.plugins: "/var/lib/neo4j/plugins"
-  server.memory.heap.initial_size: "5G"
-  server.memory.heap.max_size: "5G"
-  server.memory.pagecache.size: "1500M"
+  server.memory.heap.initial_size: "4G"
+  server.memory.heap.max_size: "4G"
+  server.memory.pagecache.size: "1G"
   server.directories.transaction.logs.root: /transactions
   initial.server.mode_constraint: "SECONDARY"
   server.cluster.system_database_mode: "SECONDARY"

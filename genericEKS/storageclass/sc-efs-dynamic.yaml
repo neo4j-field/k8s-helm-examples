@@ -7,7 +7,10 @@ metadata:
 provisioner: efs.csi.aws.com
 parameters:
   provisioningMode: "efs-ap"
-  fileSystemId: "fs-0fbbd8f2d65d482d7"
+  # Substituted at apply time by scripts/startall.sh with the real EFS filesystem
+  # ID it provisions (or finds) for this cluster -- do not hardcode a real ID here,
+  # it won't exist in a fresh account/cluster.
+  fileSystemId: "FILESYSTEM_ID_PLACEHOLDER"
   directoryPerms: "755"
   uid: "7474"
   gid: "7474"

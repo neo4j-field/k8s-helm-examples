@@ -3,7 +3,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: pvc-efs-dynamic
-  namespace: neo4j
+  namespace: neo4j-ns
 spec:
   storageClassName: sc-efs-dynamic
   accessModes:

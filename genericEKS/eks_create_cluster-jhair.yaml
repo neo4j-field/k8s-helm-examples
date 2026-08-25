@@ -151,7 +151,7 @@ managedNodeGroups:
     availabilityZones: ["us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
-  - name: playsmall
+  - name: neo4j-ng
     instanceType: m7g.large
     iam:
       withAddonPolicies:

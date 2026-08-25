@@ -14,19 +14,24 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
     # the next line is for internal pointing (VPC) load balancer 
     #service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
-    service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
     #below not needed
     #service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, 7687
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
-    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: YOUR ACM ARN GOES HERE
+    # TLS termination is DISABLED for now: there is no ACM cert in this account/region.
+    # The http listener below is plain port 80 -> 7474 (no encryption) until a real
+    # cert exists. To re-enable TLS termination at the LB: request/obtain an ACM cert
+    # ARN in this region, change the http port below back to 443, then uncomment the
+    # next two lines with that ARN filled in.
+    #service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    #service.beta.kubernetes.io/aws-load-balancer-ssl-cert: YOUR ACM ARN GOES HERE
     #only if you want the load balancer to continue to hit the same destination per client (sticky)
     #service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
 
   labels:
     #app: hybridgds
     eks.amazonaws.com/nodetype: "primary"
-  name: playsmall-core-lb
-  namespace: "efs"
+  name: neo4j-core-lb
+  namespace: "neo4j-ns"
 spec:
   #loadBalancerIP: 10.151.8.87
   externalTrafficPolicy: Local
@@ -36,11 +41,15 @@ spec:
     protocol: TCP
     targetPort: 7687
   - name: http
-    port: 443
+    port: 80
     protocol: TCP
     targetPort: 7474
   selector:
     eks.amazonaws.com/nodetype: "primary"
-    app: playsmall
+    # Must match hybrid-core-small.yaml's neo4j.name (the chart's "app" pod
+    # label) -- this was "playsmall" before, which never matched any actual
+    # core pod (they carry app=neo4j-hybrid-cluster), so this Service had zero
+    # endpoints and the NLB had no healthy targets at all.
+    app: neo4j-hybrid-cluster
   sessionAffinity: None
   type: LoadBalancer
