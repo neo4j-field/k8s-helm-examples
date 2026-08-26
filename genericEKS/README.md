@@ -103,7 +103,7 @@ ALTER DATABASE neo4j SET TOPOLOGY 3 PRIMARY 2 SECONDARY
 ### Login
 
 Username/password come from the `neo4jpwd` secret, set by the `NEO4J_AUTH`
-variable in `scripts/startall.sh` (default `neo4j` / `Neo4j123`).
+variable in `scripts/startall.sh`.
 
 ## Tearing down
 
