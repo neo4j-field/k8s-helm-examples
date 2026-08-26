@@ -32,7 +32,7 @@ every pod 403s on `ImagePullBackOff`.
 
 ## Using a custom image
 
-Set `image.customImage` in `hybrid-core-small.yaml`/`hybrid-gds-small.yaml`
+Set `image.customImage` in `neo4j-core.yaml`/`hybrid-neo4j-gds.yaml`
 to the pushed image URI (both files have this commented out by default,
 pointing at an example from a different AWS account — don't uncomment that
 example ARN as-is). See the "Images" bullet in [CLAUDE.md](../CLAUDE.md) for

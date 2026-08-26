@@ -46,7 +46,7 @@ spec:
     targetPort: 7474
   selector:
     eks.amazonaws.com/nodetype: "primary"
-    # Must match hybrid-core-small.yaml's neo4j.name (the chart's "app" pod
+    # Must match neo4j-core.yaml's neo4j.name (the chart's "app" pod
     # label) -- this was "playsmall" before, which never matched any actual
     # core pod (they carry app=neo4j-hybrid-cluster), so this Service had zero
     # endpoints and the NLB had no healthy targets at all.

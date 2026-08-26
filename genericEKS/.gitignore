@@ -1,0 +1,7 @@
+# Scratch space for files generated/used during a deployment (e.g. the
+# temp eksctl ClusterConfig and deployment.env state file scripts/startall.sh
+# writes per cluster+release into deployed-<cluster>-<release>/, and a good
+# place to redirect startup.log/stopall.log too) -- never tracked.
+deployed/
+deployed-*/
+tmp/

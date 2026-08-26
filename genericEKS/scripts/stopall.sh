@@ -8,6 +8,16 @@
 # Nothing is deleted unless at least one option is given -- with no
 # arguments this just prints usage and exits.
 #
+# Automatically finds and reads deployed-<cluster>-<release>/deployment.env
+# (written by startall.sh) to determine the cluster name, Helm release
+# prefix, and GDS count actually used, so a deployment made with
+# --cluster-name/--release-name/--gds-count on startall.sh is torn down
+# correctly without repeating those flags here. If exactly one deployed-*/
+# directory exists, it's used automatically. If more than one exists, pass
+# --cluster-name/--release-name (below) to pick one -- this script will
+# refuse to guess. Falls back to the defaults below (jhair-cluster/neo4j/2)
+# if no deployed-*/ directory exists at all.
+#
 # Options (independent and combinable):
 #   --uninstall-neo4j    Uninstall the Neo4j Helm releases; delete their
 #                        data/transactions PVCs and PVs (a full wipe by
@@ -51,16 +61,28 @@ Usage: stopall.sh [OPTIONS]
 Tear down the hybrid GDS Neo4j cluster on EKS. Nothing is deleted unless at
 least one option is given.
 
+Automatically finds and reads a deployed-<cluster>-<release>/deployment.env
+(written by startall.sh) for the cluster name, release prefix, and GDS
+count actually deployed. If exactly one deployed-*/ directory exists, it's
+used automatically; if more than one exists, use --cluster-name/
+--release-name to pick one (this script refuses to guess). Falls back to
+jhair-cluster/neo4j/2 if no deployed-*/ directory exists at all.
+
 Options (independent and combinable):
   --uninstall-neo4j    Uninstall the Neo4j Helm releases; delete their
                        data/transactions PVCs and PVs (a full wipe -- see
                        CLAUDE.md).
-  --undeploy-lb        Delete all 3 load balancers (core + 2 GDS).
+  --undeploy-lb        Delete the core load balancer and however many GDS
+                       load balancers were actually deployed (0-2).
   --all                Delete the nodegroup, the EKS cluster, and the shared
                        EFS filesystem. Implies --undeploy-lb and
                        --uninstall-neo4j (see script header comment for why:
                        skipping either orphans real, still-billing AWS
                        resources once the cluster is gone).
+  --cluster-name NAME  Select which deployed-*/ directory to use by
+                       cluster name (see above).
+  --release-name PREFIX  Select which deployed-*/ directory to use by
+                       release prefix (see above).
   -h, --help           Show this help and exit.
 EOF
 }
@@ -73,13 +95,21 @@ fi
 UNINSTALL_NEO4J=false
 UNDEPLOY_LB=false
 REMOVE_CLUSTER=false
-for arg in "$@"; do
-  case "${arg}" in
-    --uninstall-neo4j) UNINSTALL_NEO4J=true ;;
-    --undeploy-lb) UNDEPLOY_LB=true ;;
-    --all) REMOVE_CLUSTER=true ;;
+CLUSTER_NAME_ARG=""
+RELEASE_PREFIX_ARG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --uninstall-neo4j) UNINSTALL_NEO4J=true; shift ;;
+    --undeploy-lb) UNDEPLOY_LB=true; shift ;;
+    --all) REMOVE_CLUSTER=true; shift ;;
+    --cluster-name)
+      if [[ -z "${2:-}" ]]; then echo "ERROR: --cluster-name requires a value" >&2; usage; exit 1; fi
+      CLUSTER_NAME_ARG="$2"; shift 2 ;;
+    --release-name)
+      if [[ -z "${2:-}" ]]; then echo "ERROR: --release-name requires a value" >&2; usage; exit 1; fi
+      RELEASE_PREFIX_ARG="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "Unknown option: ${arg}" >&2; usage; exit 1 ;;
+    *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
 done
 
@@ -95,25 +125,92 @@ if [[ "${REMOVE_CLUSTER}" == "true" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Configuration (defaults; overridden below by deployed/deployment.env if
+# startall.sh has been run -- see that file's header comment)
 # ---------------------------------------------------------------------------
 CLUSTER_CONFIG="eks_create_cluster-jhair.yaml"
 EKS_CLUSTER_NAME="jhair-cluster"   # metadata.name in CLUSTER_CONFIG
 EKS_REGION="us-east-2"             # metadata.region in CLUSTER_CONFIG
 NODEGROUP="neo4j-ng"
 NAMESPACE="neo4j-ns"
+RELEASE_PREFIX="neo4j"
 
 CORE_COUNT=3
-GDS_COUNT=2
+GDS_COUNT=2   # conservative fallback (max footprint) if deployment.env is missing -- see below
 
 CORE_LB="lb-neo4j-core.yaml"
-GDS_LBS=(lb1-gds.yaml lb2-gds.yaml)
+GDS_LBS_ALL=(lb1-gds.yaml lb2-gds.yaml)
 
 # ---------------------------------------------------------------------------
 # cd to the genericEKS root (parent of this script's dir) so relative paths work
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/.." || exit 1
+
+# ---------------------------------------------------------------------------
+# Find and pick up what startall.sh actually deployed (cluster name, release
+# prefix, GDS count, etc.), recorded in deployed-<cluster>-<release>/
+# deployment.env. Without this, --cluster-name/--release-name/--gds-count on
+# startall.sh would have no way to be torn down correctly. Multiple such
+# directories can exist side by side (one per cluster+release combination
+# startall.sh has ever deployed here) -- narrow with --cluster-name/
+# --release-name when more than one matches; this script refuses to guess
+# rather than risk tearing down the wrong one. If nothing matches at all
+# (e.g. deployed-*/ was cleaned, or startall.sh was never run from this
+# checkout), fall back to the hardcoded defaults above, applying
+# --cluster-name/--release-name if given -- GDS_COUNT stays at the max (2)
+# in that case since over-attempting cleanup is harmless
+# (--ignore-not-found everywhere) but under-attempting it can orphan real
+# resources.
+# ---------------------------------------------------------------------------
+if [[ -n "${CLUSTER_NAME_ARG}" && -n "${RELEASE_PREFIX_ARG}" ]]; then
+  GLOB_PATTERN="deployed-${CLUSTER_NAME_ARG}-${RELEASE_PREFIX_ARG}"
+elif [[ -n "${CLUSTER_NAME_ARG}" ]]; then
+  GLOB_PATTERN="deployed-${CLUSTER_NAME_ARG}-*"
+elif [[ -n "${RELEASE_PREFIX_ARG}" ]]; then
+  GLOB_PATTERN="deployed-*-${RELEASE_PREFIX_ARG}"
+else
+  GLOB_PATTERN="deployed-*"
+fi
+
+shopt -s nullglob
+MATCHES=()
+for d in ${GLOB_PATTERN}; do
+  [[ -f "${d}/deployment.env" ]] && MATCHES+=("${d}")
+done
+shopt -u nullglob
+
+if [[ "${#MATCHES[@]}" -eq 1 ]]; then
+  DEPLOYMENT_STATE_FILE="${MATCHES[0]}/deployment.env"
+  echo "Using deployment parameters from ${DEPLOYMENT_STATE_FILE}."
+  # shellcheck disable=SC1090
+  source "${DEPLOYMENT_STATE_FILE}"
+elif [[ "${#MATCHES[@]}" -gt 1 ]]; then
+  echo "ERROR: multiple matching deployments found; pass --cluster-name and/or" \
+       "--release-name to pick one:" >&2
+  printf '  %s\n' "${MATCHES[@]}" >&2
+  exit 1
+else
+  [[ -n "${CLUSTER_NAME_ARG}" ]] && EKS_CLUSTER_NAME="${CLUSTER_NAME_ARG}"
+  [[ -n "${RELEASE_PREFIX_ARG}" ]] && RELEASE_PREFIX="${RELEASE_PREFIX_ARG}"
+  echo "No matching deployed-*/deployment.env found; using cluster=${EKS_CLUSTER_NAME}," \
+       "release-prefix=${RELEASE_PREFIX}, gds-count=${GDS_COUNT}."
+fi
+GDS_LBS=("${GDS_LBS_ALL[@]:0:GDS_COUNT}")
+
+# eksctl reads the cluster name to operate on from CLUSTER_CONFIG's own
+# metadata.name, not from EKS_CLUSTER_NAME -- if a custom cluster name was
+# deployed, write a temp copy with metadata.name substituted (same trick
+# startall.sh uses), or eksctl's nodegroup deletion below would silently
+# target/look for the wrong cluster (jhair-cluster).
+if [[ "${EKS_CLUSTER_NAME}" != "jhair-cluster" ]]; then
+  SCRATCH_DIR="deployed-${EKS_CLUSTER_NAME}-${RELEASE_PREFIX}"
+  mkdir -p "${SCRATCH_DIR}"
+  TMP_CLUSTER_CONFIG="$(mktemp "${SCRATCH_DIR}/eks-cluster-config.XXXXXX.yaml")"
+  trap 'rm -f "${TMP_CLUSTER_CONFIG}"' EXIT
+  sed "s/^  name: .*/  name: ${EKS_CLUSTER_NAME}/" "${CLUSTER_CONFIG}" > "${TMP_CLUSTER_CONFIG}"
+  CLUSTER_CONFIG="${TMP_CLUSTER_CONFIG}"
+fi
 
 # ---------------------------------------------------------------------------
 # 0. AWS auth + kubectl context (this box is also used against AKS clusters,
@@ -139,8 +236,8 @@ echo "kubectl context confirmed: ${CURRENT_CONTEXT}"
 # 1. Uninstall Neo4j releases (--uninstall-neo4j)
 # ---------------------------------------------------------------------------
 if [[ "${UNINSTALL_NEO4J}" == "true" ]]; then
-  CORE_RELEASES=$(for i in $(seq 1 "${CORE_COUNT}"); do echo -n "neo4j-${i} "; done)
-  GDS_RELEASES=$(for i in $(seq 1 "${GDS_COUNT}"); do echo -n "neo4j-gds-${i} "; done)
+  CORE_RELEASES=$(for i in $(seq 1 "${CORE_COUNT}"); do echo -n "${RELEASE_PREFIX}-${i} "; done)
+  GDS_RELEASES=$(for i in $(seq 1 "${GDS_COUNT}"); do echo -n "${RELEASE_PREFIX}-gds-${i} "; done)
 
   echo "Uninstalling Neo4j releases..."
   # shellcheck disable=SC2086
@@ -178,7 +275,7 @@ if [[ "${UNINSTALL_NEO4J}" == "true" ]]; then
   # 1c. Clean up leftover cleanup jobs/pods (the chart doesn't always clear them)
   # -------------------------------------------------------------------------
   echo "Deleting leftover core cleanup pods..."
-  CORE_CLEANUP=$(kubectl get pods -n "${NAMESPACE}" -o=name | awk '/neo4j-[0-9]+-cleanup/{print $1}')
+  CORE_CLEANUP=$(kubectl get pods -n "${NAMESPACE}" -o=name | awk -v p="${RELEASE_PREFIX}" '$0 ~ p"-[0-9]+-cleanup"{print $1}')
   if [[ -n "${CORE_CLEANUP}" ]]; then
     # shellcheck disable=SC2086
     kubectl delete -n "${NAMESPACE}" ${CORE_CLEANUP}
@@ -187,7 +284,7 @@ if [[ "${UNINSTALL_NEO4J}" == "true" ]]; then
   fi
 
   echo "Deleting leftover GDS cleanup pods..."
-  GDS_CLEANUP=$(kubectl get pods -n "${NAMESPACE}" -o=name | awk '/neo4j-gds-[0-9]+-cleanup/{print $1}')
+  GDS_CLEANUP=$(kubectl get pods -n "${NAMESPACE}" -o=name | awk -v p="${RELEASE_PREFIX}" '$0 ~ p"-gds-[0-9]+-cleanup"{print $1}')
   if [[ -n "${GDS_CLEANUP}" ]]; then
     # shellcheck disable=SC2086
     kubectl delete -n "${NAMESPACE}" ${GDS_CLEANUP}
@@ -320,6 +417,15 @@ if [[ "${REMOVE_CLUSTER}" == "true" ]]; then
     fi
 
     delete_stack_with_force_fallback "eksctl-${EKS_CLUSTER_NAME}-cluster"
+  fi
+
+  # The cluster is gone; a deployed-*/ directory found via the discovery
+  # logic above (as opposed to a manual --cluster-name/--release-name
+  # override with no matching directory) is now stale and would otherwise
+  # sit around as an ambiguous match for a future stopall.sh run.
+  if [[ "${#MATCHES[@]}" -eq 1 ]]; then
+    echo "Removing ${MATCHES[0]} (deployment torn down)..."
+    rm -rf "${MATCHES[0]}"
   fi
 else
   echo "Skipping nodegroup/cluster/EFS removal (pass --all to delete them)."

@@ -5,7 +5,7 @@
 #   storage classes/PVCs -> pods -> load balancers
 #
 # Run from anywhere; the script cd's to the genericEKS root itself.
-#   ./scripts/startall.sh [MODE]
+#   ./scripts/startall.sh [MODE] [OPTIONS]
 #
 # Modes (default: --all, runs to completion with no prompts):
 #   --k8s          Provision only the EKS cluster/nodegroup/namespace/EFS/
@@ -14,7 +14,21 @@
 #   --all          Full pipeline: k8s infrastructure + Neo4j installs +
 #                  load balancers. This is also what runs with no
 #                  arguments at all.
-#   -h, --help     Show this help and exit.
+#
+# Options:
+#   --cluster-name NAME    EKS cluster name (default: jhair-cluster). The
+#                           checked-in eksctl ClusterConfig hardcodes
+#                           metadata.name -- eksctl refuses --name alongside
+#                           --config-file, so a custom name here is applied
+#                           by writing a temp copy of the config with
+#                           metadata.name substituted.
+#   --release-name PREFIX  Helm release name prefix (default: neo4j),
+#                           producing PREFIX-1/2/3 (core) and
+#                           PREFIX-gds-1/2 (GDS). The GDS load balancer
+#                           manifests select pods by this exact release
+#                           name, so a temp copy of those manifests is
+#                           applied with the substituted name too.
+#   -h, --help              Show this help and exit.
 #
 # Stops immediately on any command failure (set -e/-o pipefail), including
 # failures inside a `cmd | kubectl apply -f -` pipeline.
@@ -30,47 +44,73 @@ export AWS_PAGER=""
 # ---------------------------------------------------------------------------
 usage() {
   cat <<'EOF'
-Usage: startall.sh [MODE]
+Usage: startall.sh [MODE] [OPTIONS]
 
 Bring up the hybrid GDS Neo4j cluster on EKS.
 
 Modes (default: --all, runs to completion with no prompts):
-  --k8s          Provision only the EKS cluster/nodegroup/namespace/EFS/
-                 storage prerequisites. Skips Neo4j helm installs, load
-                 balancers, and the LB-hostname/connection-URL wait.
-  --all          Full pipeline: k8s infrastructure + Neo4j installs +
-                 load balancers. This is also what runs with no
-                 arguments at all.
-  -h, --help     Show this help and exit.
+  --k8s                   Provision only the EKS cluster/nodegroup/namespace/
+                          EFS/storage prerequisites. Skips Neo4j helm
+                          installs, load balancers, and the LB-hostname/
+                          connection-URL wait.
+  --all                   Full pipeline: k8s infrastructure + Neo4j installs
+                          + load balancers. This is also what runs with no
+                          arguments at all.
+
+Options:
+  --cluster-name NAME     EKS cluster name (default: jhair-cluster).
+  --release-name PREFIX   Helm release name prefix (default: neo4j),
+                          producing PREFIX-1/2/3 (core) and PREFIX-gds-1/2
+                          (GDS).
+  --gds-count N           Number of GDS secondary members: 0, 1, or 2
+                          (default: 0 -- GDS is opt-in). 0 skips GDS
+                          entirely -- no GDS installs, no GDS load
+                          balancers.
+  -h, --help              Show this help and exit.
 EOF
 }
 
 MODE="full"
-for arg in "$@"; do
-  case "${arg}" in
-    --k8s) MODE="k8s-only" ;;
-    --all) MODE="full" ;;
+CLUSTER_NAME_ARG=""
+RELEASE_PREFIX_ARG=""
+GDS_COUNT_ARG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --k8s) MODE="k8s-only"; shift ;;
+    --all) MODE="full"; shift ;;
+    --cluster-name)
+      if [[ -z "${2:-}" ]]; then echo "ERROR: --cluster-name requires a value" >&2; usage; exit 1; fi
+      CLUSTER_NAME_ARG="$2"; shift 2 ;;
+    --release-name)
+      if [[ -z "${2:-}" ]]; then echo "ERROR: --release-name requires a value" >&2; usage; exit 1; fi
+      RELEASE_PREFIX_ARG="$2"; shift 2 ;;
+    --gds-count)
+      if [[ ! "${2:-}" =~ ^[0-2]$ ]]; then echo "ERROR: --gds-count requires a value of 0, 1, or 2" >&2; usage; exit 1; fi
+      GDS_COUNT_ARG="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "Unknown option: ${arg}" >&2; usage; exit 1 ;;
+    *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
 done
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-CLUSTER_CONFIG="eks_create_cluster-jhair.yaml"   # eksctl ClusterConfig holding the nodegroup
-EKS_CLUSTER_NAME="jhair-cluster"             # metadata.name in CLUSTER_CONFIG
+CLUSTER_CONFIG="eks_create_cluster-jhair.yaml"           # eksctl ClusterConfig holding the nodegroup
+EKS_CLUSTER_NAME="${CLUSTER_NAME_ARG:-jhair-cluster}"    # metadata.name in CLUSTER_CONFIG (overridable via --cluster-name)
 EKS_REGION="us-east-2"                       # metadata.region in CLUSTER_CONFIG
 NODEGROUP="neo4j-ng"                         # nodegroup to spin up (must exist in CLUSTER_CONFIG)
 NAMESPACE="neo4j-ns"                         # must match the namespace in the *-lb.yaml manifests
 
-CORE_VALUES="hybrid-core-small.yaml"         # 3 core PRIMARY members
-GDS_VALUES="hybrid-gds-small.yaml"           # 2 secondary GDS members
+CORE_VALUES="neo4j-core.yaml"                # 3 core PRIMARY members
+GDS_VALUES="hybrid-neo4j-gds.yaml"           # up to 2 secondary GDS members
 CORE_COUNT=3
-GDS_COUNT=2
+GDS_COUNT="${GDS_COUNT_ARG:-0}"              # 0/1/2 secondary GDS members (opt-in, overridable via --gds-count)
 
 CORE_LB="lb-neo4j-core.yaml"                 # 1 NLB fronting the core members
-GDS_LBS=(lb1-gds.yaml lb2-gds.yaml)          # 1 NLB per GDS member (non-routing bolt)
+GDS_LBS_ALL=(lb1-gds.yaml lb2-gds.yaml)      # 1 NLB per GDS member (non-routing bolt)
+GDS_LBS=("${GDS_LBS_ALL[@]:0:GDS_COUNT}")    # only as many LBs as GDS members requested
+
+RELEASE_PREFIX="${RELEASE_PREFIX_ARG:-neo4j}"  # Helm release name prefix (overridable via --release-name)
 
 NEO4J_AUTH="neo4j/Neo4j123"                  # username/password for the neo4jpwd secret
 
@@ -85,6 +125,40 @@ SLEEP_BETWEEN=10                             # pause between helm installs
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/.." || exit 1
+
+# ---------------------------------------------------------------------------
+# Scratch space for files generated during a deployment (gitignored -- see
+# .gitignore). Named per cluster+release so multiple concurrent deployments
+# (different --cluster-name/--release-name) each get their own directory
+# instead of overwriting one shared one. If a custom cluster name was
+# requested, eksctl refuses --name alongside --config-file, so write a temp
+# copy of CLUSTER_CONFIG here with metadata.name substituted and use that
+# instead everywhere eksctl reads CLUSTER_CONFIG.
+# ---------------------------------------------------------------------------
+SCRATCH_DIR="deployed-${EKS_CLUSTER_NAME}-${RELEASE_PREFIX}"
+mkdir -p "${SCRATCH_DIR}"
+if [[ -n "${CLUSTER_NAME_ARG}" ]]; then
+  TMP_CLUSTER_CONFIG="$(mktemp "${SCRATCH_DIR}/eks-cluster-config.XXXXXX.yaml")"
+  trap 'rm -f "${TMP_CLUSTER_CONFIG}"' EXIT
+  sed "s/^  name: .*/  name: ${EKS_CLUSTER_NAME}/" "${CLUSTER_CONFIG}" > "${TMP_CLUSTER_CONFIG}"
+  CLUSTER_CONFIG="${TMP_CLUSTER_CONFIG}"
+fi
+
+# Record what this deployment actually used so stopall.sh can tear down the
+# right cluster/releases/GDS count later without --cluster-name/
+# --release-name/--gds-count having to be repeated (and possibly getting out
+# of sync) on the stopall.sh command line. One file per cluster+release, so
+# deploying multiple clusters/release-prefixes doesn't clobber each other's
+# record -- stopall.sh picks the right deployed-*/ directory by name.
+DEPLOYMENT_STATE_FILE="${SCRATCH_DIR}/deployment.env"
+cat > "${DEPLOYMENT_STATE_FILE}" <<EOF
+EKS_CLUSTER_NAME=${EKS_CLUSTER_NAME}
+EKS_REGION=${EKS_REGION}
+NODEGROUP=${NODEGROUP}
+NAMESPACE=${NAMESPACE}
+RELEASE_PREFIX=${RELEASE_PREFIX}
+GDS_COUNT=${GDS_COUNT}
+EOF
 
 # ---------------------------------------------------------------------------
 # 0. AWS auth + kubectl context (this box is also used against AKS clusters,
@@ -302,23 +376,33 @@ fi
 # ---------------------------------------------------------------------------
 echo "Installing ${CORE_COUNT} core member(s)..."
 for i in $(seq 1 "${CORE_COUNT}"); do
-  helm upgrade -i "neo4j-${i}" neo4j/neo4j --namespace "${NAMESPACE}" -f "${CORE_VALUES}"
+  helm upgrade -i "${RELEASE_PREFIX}-${i}" neo4j/neo4j --namespace "${NAMESPACE}" -f "${CORE_VALUES}"
   sleep "${SLEEP_BETWEEN}"
 done
 
-echo "Installing ${GDS_COUNT} GDS member(s)..."
-for i in $(seq 1 "${GDS_COUNT}"); do
-  helm upgrade -i "neo4j-gds-${i}" neo4j/neo4j --namespace "${NAMESPACE}" -f "${GDS_VALUES}"
-  sleep "${SLEEP_BETWEEN}"
-done
+if [[ "${GDS_COUNT}" -gt 0 ]]; then
+  echo "Installing ${GDS_COUNT} GDS member(s)..."
+  for i in $(seq 1 "${GDS_COUNT}"); do
+    helm upgrade -i "${RELEASE_PREFIX}-gds-${i}" neo4j/neo4j --namespace "${NAMESPACE}" -f "${GDS_VALUES}"
+    sleep "${SLEEP_BETWEEN}"
+  done
+else
+  echo "Skipping GDS members (pass --gds-count 1 or 2 to deploy them)."
+fi
 
 # ---------------------------------------------------------------------------
 # 5. Load balancers
 # ---------------------------------------------------------------------------
 echo "Creating load balancers..."
 kubectl apply -f "${CORE_LB}"
-for lb in "${GDS_LBS[@]}"; do
-  kubectl apply -f "${lb}"
+for i in "${!GDS_LBS[@]}"; do
+  gds_num=$((i+1))
+  # The GDS LB manifests select pods by the exact release name
+  # (helm.neo4j.com/instance) -- substitute it if --release-name changed
+  # that from the checked-in default "neo4j" (leaves the LB's own object
+  # name, e.g. "neo4j-gds-1-lb", untouched -- that's a separate identity).
+  sed "/helm\.neo4j\.com\/instance:/s/neo4j-gds-${gds_num}/${RELEASE_PREFIX}-gds-${gds_num}/" \
+    "${GDS_LBS[$i]}" | kubectl apply -f -
 done
 
 # ---------------------------------------------------------------------------
@@ -394,11 +478,13 @@ for i in "${!GDS_LBS[@]}"; do
   fi
 done
 echo "-------------------------------------------------------"
-echo "Once all pods are Running, set the topology so the DB replicates"
-echo "to the GDS secondaries (run against the core LB / a core pod):"
-echo
-echo "  ALTER DATABASE neo4j SET TOPOLOGY ${CORE_COUNT} PRIMARY ${GDS_COUNT} SECONDARY"
-echo "-------------------------------------------------------"
+if [[ "${GDS_COUNT}" -gt 0 ]]; then
+  echo "Once all pods are Running, set the topology so the DB replicates"
+  echo "to the GDS secondaries (run against the core LB / a core pod):"
+  echo
+  echo "  ALTER DATABASE neo4j SET TOPOLOGY ${CORE_COUNT} PRIMARY ${GDS_COUNT} SECONDARY"
+  echo "-------------------------------------------------------"
+fi
 if [[ -n "${CORE_HOST}" ]]; then
   echo "Neo4j Browser: ${CORE_SCHEME_HTTP}://${CORE_HOST}"
 else

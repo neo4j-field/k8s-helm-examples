@@ -1,20 +1,28 @@
 
 image:
+#
   imagePullPolicy: "Always"
   # Using the official multi-arch Neo4j Enterprise image (works on the ARM64
   # nodegroups here) instead of a custom image -- the customImage below lived
   # in a different AWS account (766746056086) with no cross-account ECR pull
-  # access granted to this cluster's account, so it 403'd.
-  #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-aeb281-5.9.0-enterprise-arm"
-  #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb211-5.13.0-enterprise-arm"
-#If a custom domain is in use
+  # access granted to this cluster's account, so it 403'd. Unlike that custom
+  # image, the official one doesn't have GDS baked in, so NEO4J_PLUGINS below
+  # is uncommented to install it.
+  #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-aeb281g240-5.9.0-enterprise-arm"
+  #customImage: "766746056086.dkr.ecr.us-east-2.amazonaws.com/drose-repo:neo4j-axeb211g254-5.13.0-enterprise-arm"
+  #If a custom domain is in use
 #clusterDomain: "neo4j.cluster.local"
 
 neo4j:
+  # Must match neo4j-core.yaml's neo4j.name: this sets the "app" label
+  # used by the chart's Kubernetes-based cluster-discovery service. A
+  # different name here isolates the GDS secondaries into their own discovery
+  # group -- they can only ever see each other, never the PRIMARY members, so
+  # they hang forever trying to join a cluster they can't discover.
   name: "neo4j-hybrid-cluster"
   resources:
-    cpu: "1"
-    memory: "6G"
+    cpu: 1.5
+    memory: "7G"
   # Uncomment to set the initial password
   #password: ""
   passwordFromSecret: "neo4jpwd"
@@ -24,18 +32,18 @@ neo4j:
   acceptLicenseAgreement: "yes"
   minimumClusterSize: "3"
 
-  labels:
-    eks.amazonaws.com/nodetype: "primary"
-
 nodeSelector:
   eks.amazonaws.com/nodegroup: "neo4j-ng"
 
 env:
-   NEO4J_PLUGINS: '["bloom", "apoc"]'
+  NEO4J_PLUGINS: '["graph-data-science", "bloom", "apoc"]'
 
 services:
   neo4j:
     enabled: false
+
+podSpec:
+  loadbalancer: "exclude"
 
 config:
   server.backup.enabled: "true"
@@ -47,25 +55,14 @@ config:
   server.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
   dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
   server.directories.plugins: "/var/lib/neo4j/plugins"
-  server.memory.heap.initial_size: "3G"
-  server.memory.heap.max_size: "3G"
+  server.memory.heap.initial_size: "4G"
+  server.memory.heap.max_size: "4G"
   server.memory.pagecache.size: "1G"
   server.directories.transaction.logs.root: /transactions
-  initial.server.mode_constraint: "PRIMARY"
-  initial.dbms.default_primaries_count: "3"
-  # Auto-ENABLE a server as soon as it joins in the FREE state -- otherwise
-  # each GDS secondary joins but stays FREE (visible in SHOW SERVERS, never
-  # hosting a database) until someone manually runs ENABLE SERVER for it.
-  # This decision is made by whichever core member holds system database
-  # leadership, so it belongs here (hybrid-core-small.yaml), not in
-  # hybrid-gds-small.yaml -- the joining secondary's own copy of this setting
-  # is never consulted.
-  initial.dbms.automatically_enable_free_servers: "true"
-  server.metrics.enabled: "true"
-  server.metrics.csv.interval: "30s"
-  server.metrics.csv.rotation.keep_number: "5"
-  server.metrics.csv.rotation.compression: "NONE"
+  initial.server.mode_constraint: "SECONDARY"
+  server.cluster.system_database_mode: "SECONDARY"
   db.tx_log.rotation.retention_policy: "1 hours"
+  initial.server.tags: "gds"
 
 
 apoc_config:
@@ -109,4 +106,3 @@ volumes:
           - ReadWriteOnce
         requests:
           storage: 100Gi
-  
