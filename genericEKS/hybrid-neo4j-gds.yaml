@@ -33,7 +33,7 @@ neo4j:
   minimumClusterSize: "3"
 
 nodeSelector:
-  eks.amazonaws.com/nodegroup: "neo4j-ng"
+  eks.amazonaws.com/nodegroup: "neo4j-small"
 
 env:
   NEO4J_PLUGINS: '["graph-data-science", "bloom", "apoc"]'

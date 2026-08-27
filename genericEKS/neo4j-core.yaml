@@ -28,7 +28,7 @@ neo4j:
     eks.amazonaws.com/nodetype: "primary"
 
 nodeSelector:
-  eks.amazonaws.com/nodegroup: "neo4j-ng"
+  eks.amazonaws.com/nodegroup: "neo4j-small"
 
 env:
    NEO4J_PLUGINS: '["bloom", "apoc"]'

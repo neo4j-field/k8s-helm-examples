@@ -5,3 +5,8 @@
 deployed/
 deployed-*/
 tmp/
+
+# startup-<domain>.log/stopall-<domain>.log written by scripts/startall.sh
+# and scripts/stopall.sh (see their exec > >(tee ...) setup), plus any other
+# ad-hoc log redirected here manually -- never tracked.
+*.log

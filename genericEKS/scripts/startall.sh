@@ -22,12 +22,19 @@
 #                           --config-file, so a custom name here is applied
 #                           by writing a temp copy of the config with
 #                           metadata.name substituted.
-#   --release-name PREFIX  Helm release name prefix (default: neo4j),
-#                           producing PREFIX-1/2/3 (core) and
-#                           PREFIX-gds-1/2 (GDS). The GDS load balancer
-#                           manifests select pods by this exact release
-#                           name, so a temp copy of those manifests is
-#                           applied with the substituted name too.
+#   --domain-name NAME      Domain identifier (default: neo4j). Derives the
+#                           namespace (<domain-name>-ns) and the Helm
+#                           release name prefix (<domain-name>, producing
+#                           <domain-name>-1/2/3 core and
+#                           <domain-name>-gds-1/2 GDS releases) -- lets
+#                           independent domains (e.g. claims, documents) be
+#                           deployed side by side on the same cluster. The
+#                           core/GDS load balancer manifests and the shared
+#                           EFS PVC manifest all hardcode namespace:
+#                           neo4j-ns (and the GDS manifests also hardcode
+#                           the release name), so temp copies with both
+#                           substituted are written to the per-deployment
+#                           scratch directory and applied from there.
 #   -h, --help              Show this help and exit.
 #
 # Stops immediately on any command failure (set -e/-o pipefail), including
@@ -59,9 +66,11 @@ Modes (default: --all, runs to completion with no prompts):
 
 Options:
   --cluster-name NAME     EKS cluster name (default: jhair-cluster).
-  --release-name PREFIX   Helm release name prefix (default: neo4j),
-                          producing PREFIX-1/2/3 (core) and PREFIX-gds-1/2
-                          (GDS).
+  --domain-name NAME      Domain identifier (default: neo4j). Derives the
+                          namespace (<domain-name>-ns) and the Helm
+                          release name prefix (<domain-name>, producing
+                          <domain-name>-1/2/3 core and <domain-name>-gds-1/2
+                          GDS releases).
   --gds-count N           Number of GDS secondary members: 0, 1, or 2
                           (default: 0 -- GDS is opt-in). 0 skips GDS
                           entirely -- no GDS installs, no GDS load
@@ -72,7 +81,7 @@ EOF
 
 MODE="full"
 CLUSTER_NAME_ARG=""
-RELEASE_PREFIX_ARG=""
+DOMAIN_NAME_ARG=""
 GDS_COUNT_ARG=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -81,9 +90,9 @@ while [[ $# -gt 0 ]]; do
     --cluster-name)
       if [[ -z "${2:-}" ]]; then echo "ERROR: --cluster-name requires a value" >&2; usage; exit 1; fi
       CLUSTER_NAME_ARG="$2"; shift 2 ;;
-    --release-name)
-      if [[ -z "${2:-}" ]]; then echo "ERROR: --release-name requires a value" >&2; usage; exit 1; fi
-      RELEASE_PREFIX_ARG="$2"; shift 2 ;;
+    --domain-name)
+      if [[ -z "${2:-}" ]]; then echo "ERROR: --domain-name requires a value" >&2; usage; exit 1; fi
+      DOMAIN_NAME_ARG="$2"; shift 2 ;;
     --gds-count)
       if [[ ! "${2:-}" =~ ^[0-2]$ ]]; then echo "ERROR: --gds-count requires a value of 0, 1, or 2" >&2; usage; exit 1; fi
       GDS_COUNT_ARG="$2"; shift 2 ;;
@@ -98,8 +107,9 @@ done
 CLUSTER_CONFIG="eks_create_cluster-jhair.yaml"           # eksctl ClusterConfig holding the nodegroup
 EKS_CLUSTER_NAME="${CLUSTER_NAME_ARG:-jhair-cluster}"    # metadata.name in CLUSTER_CONFIG (overridable via --cluster-name)
 EKS_REGION="us-east-2"                       # metadata.region in CLUSTER_CONFIG
-NODEGROUP="neo4j-ng"                         # nodegroup to spin up (must exist in CLUSTER_CONFIG)
-NAMESPACE="neo4j-ns"                         # must match the namespace in the *-lb.yaml manifests
+NODEGROUP="neo4j-small"                      # nodegroup to spin up (must exist in CLUSTER_CONFIG)
+DOMAIN_NAME="${DOMAIN_NAME_ARG:-neo4j}"      # domain identifier (overridable via --domain-name); derives NAMESPACE/RELEASE_PREFIX below
+NAMESPACE="${DOMAIN_NAME}-ns"                # lb-neo4j-core.yaml/lb1-gds.yaml/lb2-gds.yaml/PVC_EFS_MANIFEST hardcode namespace: "neo4j-ns" -- temp copies with this substituted are applied instead (see sections 3c/5)
 
 CORE_VALUES="neo4j-core.yaml"                # 3 core PRIMARY members
 GDS_VALUES="hybrid-neo4j-gds.yaml"           # up to 2 secondary GDS members
@@ -109,8 +119,9 @@ GDS_COUNT="${GDS_COUNT_ARG:-0}"              # 0/1/2 secondary GDS members (opt-
 CORE_LB="lb-neo4j-core.yaml"                 # 1 NLB fronting the core members
 GDS_LBS_ALL=(lb1-gds.yaml lb2-gds.yaml)      # 1 NLB per GDS member (non-routing bolt)
 GDS_LBS=("${GDS_LBS_ALL[@]:0:GDS_COUNT}")    # only as many LBs as GDS members requested
+PVC_EFS_MANIFEST="pvc/efs-pvc-dynamic.yaml"  # shared EFS PVC template (namespace substituted per --domain-name below)
 
-RELEASE_PREFIX="${RELEASE_PREFIX_ARG:-neo4j}"  # Helm release name prefix (overridable via --release-name)
+RELEASE_PREFIX="${DOMAIN_NAME}"              # Helm release name prefix, producing PREFIX-1/2/3 (core) and PREFIX-gds-1/2 (GDS)
 
 NEO4J_AUTH="neo4j/Neo4j123"                  # username/password for the neo4jpwd secret
 
@@ -127,9 +138,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/.." || exit 1
 
 # ---------------------------------------------------------------------------
+# Log everything (stdout+stderr) to a domain-specific file in addition to
+# the screen, so a run can be reviewed/shared afterward without having to
+# have redirected it manually. Overwrites on each run -- this is a log of
+# the current invocation, not a running history.
+# ---------------------------------------------------------------------------
+LOG_FILE="startup-${DOMAIN_NAME}.log"
+exec > >(tee "${LOG_FILE}") 2>&1
+echo "Logging this run to ${LOG_FILE}"
+
+# ---------------------------------------------------------------------------
 # Scratch space for files generated during a deployment (gitignored -- see
 # .gitignore). Named per cluster+release so multiple concurrent deployments
-# (different --cluster-name/--release-name) each get their own directory
+# (different --cluster-name/--domain-name) each get their own directory
 # instead of overwriting one shared one. If a custom cluster name was
 # requested, eksctl refuses --name alongside --config-file, so write a temp
 # copy of CLUSTER_CONFIG here with metadata.name substituted and use that
@@ -138,15 +159,29 @@ cd "${SCRIPT_DIR}/.." || exit 1
 SCRATCH_DIR="deployed-${EKS_CLUSTER_NAME}-${RELEASE_PREFIX}"
 mkdir -p "${SCRATCH_DIR}"
 if [[ -n "${CLUSTER_NAME_ARG}" ]]; then
-  TMP_CLUSTER_CONFIG="$(mktemp "${SCRATCH_DIR}/eks-cluster-config.XXXXXX.yaml")"
+  TMP_CLUSTER_CONFIG="$(mktemp "${SCRATCH_DIR}/eks-cluster-config.XXXXXX")"
   trap 'rm -f "${TMP_CLUSTER_CONFIG}"' EXIT
   sed "s/^  name: .*/  name: ${EKS_CLUSTER_NAME}/" "${CLUSTER_CONFIG}" > "${TMP_CLUSTER_CONFIG}"
   CLUSTER_CONFIG="${TMP_CLUSTER_CONFIG}"
 fi
 
+# Pull the nodegroup's scaling config straight out of CLUSTER_CONFIG (rather
+# than hardcoding it here) so deployment.env always reflects what eksctl
+# actually read for ${NODEGROUP}, even after someone edits the checked-in
+# desiredCapacity/maxSize. Scoped to this nodegroup's own block (between its
+# "  - name: ${NODEGROUP}" line and the next "  - name:" line) since the
+# config file defines several nodegroups.
+NODEGROUP_BLOCK="$(awk -v ng="  - name: ${NODEGROUP}" '
+  $0 == ng { flag=1; next }
+  flag && /^  - name:/ { exit }
+  flag { print }
+' "${CLUSTER_CONFIG}")"
+NODEGROUP_MAX_SIZE="$(echo "${NODEGROUP_BLOCK}" | grep -m1 'maxSize:' | awk '{print $2}')"
+NODEGROUP_DESIRED_SIZE="$(echo "${NODEGROUP_BLOCK}" | grep -m1 'desiredCapacity:' | awk '{print $2}')"
+
 # Record what this deployment actually used so stopall.sh can tear down the
 # right cluster/releases/GDS count later without --cluster-name/
-# --release-name/--gds-count having to be repeated (and possibly getting out
+# --domain-name/--gds-count having to be repeated (and possibly getting out
 # of sync) on the stopall.sh command line. One file per cluster+release, so
 # deploying multiple clusters/release-prefixes doesn't clobber each other's
 # record -- stopall.sh picks the right deployed-*/ directory by name.
@@ -155,6 +190,8 @@ cat > "${DEPLOYMENT_STATE_FILE}" <<EOF
 EKS_CLUSTER_NAME=${EKS_CLUSTER_NAME}
 EKS_REGION=${EKS_REGION}
 NODEGROUP=${NODEGROUP}
+NODEGROUP_MAX_SIZE=${NODEGROUP_MAX_SIZE}
+NODEGROUP_DESIRED_SIZE=${NODEGROUP_DESIRED_SIZE}
 NAMESPACE=${NAMESPACE}
 RELEASE_PREFIX=${RELEASE_PREFIX}
 GDS_COUNT=${GDS_COUNT}
@@ -350,7 +387,7 @@ echo "Ensuring AWS EFS CSI driver is installed..."
 helm repo add aws-efs-csi-driver https://kubernetes-sigs.github.io/aws-efs-csi-driver/ >/dev/null 2>&1 || true
 helm repo update aws-efs-csi-driver >/dev/null
 helm upgrade --install aws-efs-csi-driver aws-efs-csi-driver/aws-efs-csi-driver \
-  --namespace kube-system --wait --timeout 5m
+  --namespace kube-system --wait --timeout 5m >/dev/null   # silences the chart's NOTES.txt ("To verify that aws-efs-csi-driver has started..."); stderr/exit status still surface real failures
 
 # ---------------------------------------------------------------------------
 # 3c. Storage classes + the shared EFS PVC (depends on EFS_ID above)
@@ -358,8 +395,13 @@ helm upgrade --install aws-efs-csi-driver aws-efs-csi-driver/aws-efs-csi-driver 
 echo "Applying storage classes..."
 bash create_storageclass.sh "${EFS_ID}"
 
-echo "Ensuring shared EFS PVC (pvc-efs-dynamic)..."
-kubectl apply -f pvc/efs-pvc-dynamic.yaml
+# PVC_EFS_MANIFEST hardcodes namespace: neo4j-ns -- write a temp copy with
+# the real namespace substituted (same pattern as the CLUSTER_CONFIG temp
+# copy above) instead of applying the checked-in file directly.
+TMP_PVC_MANIFEST="$(mktemp "${SCRATCH_DIR}/efs-pvc-dynamic.XXXXXX")"
+sed "s/namespace: neo4j-ns/namespace: ${NAMESPACE}/" "${PVC_EFS_MANIFEST}" > "${TMP_PVC_MANIFEST}"
+echo "Ensuring shared EFS PVC (pvc-efs-dynamic) in namespace ${NAMESPACE}..."
+kubectl apply -f "${TMP_PVC_MANIFEST}"
 
 if [[ "${MODE}" == "k8s-only" ]]; then
   echo "-------------------------------------------------------"
@@ -394,15 +436,24 @@ fi
 # 5. Load balancers
 # ---------------------------------------------------------------------------
 echo "Creating load balancers..."
-kubectl apply -f "${CORE_LB}"
+# CORE_LB and every GDS LB manifest hardcode namespace: "neo4j-ns" -- write a
+# temp copy with the real namespace substituted (same pattern as the
+# CLUSTER_CONFIG temp copy above) instead of applying the checked-in file
+# directly.
+TMP_CORE_LB="$(mktemp "${SCRATCH_DIR}/core-lb.XXXXXX")"
+sed "s/namespace: \"neo4j-ns\"/namespace: \"${NAMESPACE}\"/" "${CORE_LB}" > "${TMP_CORE_LB}"
+kubectl apply -f "${TMP_CORE_LB}"
 for i in "${!GDS_LBS[@]}"; do
   gds_num=$((i+1))
-  # The GDS LB manifests select pods by the exact release name
-  # (helm.neo4j.com/instance) -- substitute it if --release-name changed
+  # The GDS LB manifests also select pods by the exact release name
+  # (helm.neo4j.com/instance) -- substitute it if --domain-name changed
   # that from the checked-in default "neo4j" (leaves the LB's own object
   # name, e.g. "neo4j-gds-1-lb", untouched -- that's a separate identity).
-  sed "/helm\.neo4j\.com\/instance:/s/neo4j-gds-${gds_num}/${RELEASE_PREFIX}-gds-${gds_num}/" \
-    "${GDS_LBS[$i]}" | kubectl apply -f -
+  TMP_GDS_LB="$(mktemp "${SCRATCH_DIR}/gds-lb-${gds_num}.XXXXXX")"
+  sed -e "s/namespace: \"neo4j-ns\"/namespace: \"${NAMESPACE}\"/" \
+      -e "/helm\.neo4j\.com\/instance:/s/neo4j-gds-${gds_num}/${RELEASE_PREFIX}-gds-${gds_num}/" \
+    "${GDS_LBS[$i]}" > "${TMP_GDS_LB}"
+  kubectl apply -f "${TMP_GDS_LB}"
 done
 
 # ---------------------------------------------------------------------------

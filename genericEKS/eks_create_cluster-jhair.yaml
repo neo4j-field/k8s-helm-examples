@@ -151,7 +151,7 @@ managedNodeGroups:
     availabilityZones: ["us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
-  - name: neo4j-ng
+  - name: neo4j-small
     instanceType: m7g.large
     iam:
       withAddonPolicies:
@@ -161,9 +161,9 @@ managedNodeGroups:
         awsLoadBalancerController: true
         xRay: true
         cloudWatch: true
-    desiredCapacity: 5
+    desiredCapacity: 8
     minSize: 1
-    maxSize: 6
+    maxSize: 10
     labels: {role: eks-m6axl}
     tags:
       {Department: my-dept}

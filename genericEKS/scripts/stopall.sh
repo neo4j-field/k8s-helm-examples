@@ -9,14 +9,18 @@
 # arguments this just prints usage and exits.
 #
 # Automatically finds and reads deployed-<cluster>-<release>/deployment.env
-# (written by startall.sh) to determine the cluster name, Helm release
-# prefix, and GDS count actually used, so a deployment made with
-# --cluster-name/--release-name/--gds-count on startall.sh is torn down
+# (written by startall.sh) to determine the cluster name, namespace, Helm
+# release prefix, and GDS count actually used, so a deployment made with
+# --cluster-name/--domain-name/--gds-count on startall.sh is torn down
 # correctly without repeating those flags here. If exactly one deployed-*/
-# directory exists, it's used automatically. If more than one exists, pass
-# --cluster-name/--release-name (below) to pick one -- this script will
-# refuse to guess. Falls back to the defaults below (jhair-cluster/neo4j/2)
-# if no deployed-*/ directory exists at all.
+# directory exists, it's used automatically. If more than one exists and
+# --cluster-name alone pins a single cluster, every matching domain under
+# that cluster is processed (there's nothing ambiguous about "tear down
+# everything on this cluster"). Otherwise -- e.g. --domain-name alone, or
+# neither flag, matching multiple different clusters -- pass --cluster-name/
+# --domain-name to disambiguate; this script refuses to guess which cluster.
+# Falls back to the defaults below (jhair-cluster/neo4j/2) if no deployed-*/
+# directory exists at all.
 #
 # Options (independent and combinable):
 #   --uninstall-neo4j    Uninstall the Neo4j Helm releases; delete their
@@ -62,11 +66,13 @@ Tear down the hybrid GDS Neo4j cluster on EKS. Nothing is deleted unless at
 least one option is given.
 
 Automatically finds and reads a deployed-<cluster>-<release>/deployment.env
-(written by startall.sh) for the cluster name, release prefix, and GDS
-count actually deployed. If exactly one deployed-*/ directory exists, it's
-used automatically; if more than one exists, use --cluster-name/
---release-name to pick one (this script refuses to guess). Falls back to
-jhair-cluster/neo4j/2 if no deployed-*/ directory exists at all.
+(written by startall.sh) for the cluster name, namespace, release prefix,
+and GDS count actually deployed. If exactly one deployed-*/ directory
+exists, it's used automatically; if more than one exists and --cluster-name
+alone pins a single cluster, every matching domain under that cluster is
+processed. Otherwise, use --cluster-name/--domain-name to disambiguate
+(this script refuses to guess which cluster). Falls back to
+jhair-cluster/neo4j-ns/neo4j/2 if no deployed-*/ directory exists at all.
 
 Options (independent and combinable):
   --uninstall-neo4j    Uninstall the Neo4j Helm releases; delete their
@@ -79,10 +85,13 @@ Options (independent and combinable):
                        --uninstall-neo4j (see script header comment for why:
                        skipping either orphans real, still-billing AWS
                        resources once the cluster is gone).
-  --cluster-name NAME  Select which deployed-*/ directory to use by
-                       cluster name (see above).
-  --release-name PREFIX  Select which deployed-*/ directory to use by
-                       release prefix (see above).
+  --cluster-name NAME  Select which deployed-*/ director{y,ies} to use by
+                       cluster name (see above). Given alone, every domain
+                       deployed under this cluster is processed.
+  --domain-name NAME   Select which deployed-*/ directory to use by domain
+                       name (see above); also re-derives namespace
+                       (<domain-name>-ns) and release prefix if no matching
+                       deployment.env is found.
   -h, --help           Show this help and exit.
 EOF
 }
@@ -96,7 +105,7 @@ UNINSTALL_NEO4J=false
 UNDEPLOY_LB=false
 REMOVE_CLUSTER=false
 CLUSTER_NAME_ARG=""
-RELEASE_PREFIX_ARG=""
+DOMAIN_NAME_ARG=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --uninstall-neo4j) UNINSTALL_NEO4J=true; shift ;;
@@ -105,9 +114,9 @@ while [[ $# -gt 0 ]]; do
     --cluster-name)
       if [[ -z "${2:-}" ]]; then echo "ERROR: --cluster-name requires a value" >&2; usage; exit 1; fi
       CLUSTER_NAME_ARG="$2"; shift 2 ;;
-    --release-name)
-      if [[ -z "${2:-}" ]]; then echo "ERROR: --release-name requires a value" >&2; usage; exit 1; fi
-      RELEASE_PREFIX_ARG="$2"; shift 2 ;;
+    --domain-name)
+      if [[ -z "${2:-}" ]]; then echo "ERROR: --domain-name requires a value" >&2; usage; exit 1; fi
+      DOMAIN_NAME_ARG="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
@@ -131,9 +140,10 @@ fi
 CLUSTER_CONFIG="eks_create_cluster-jhair.yaml"
 EKS_CLUSTER_NAME="jhair-cluster"   # metadata.name in CLUSTER_CONFIG
 EKS_REGION="us-east-2"             # metadata.region in CLUSTER_CONFIG
-NODEGROUP="neo4j-ng"
-NAMESPACE="neo4j-ns"
-RELEASE_PREFIX="neo4j"
+NODEGROUP="neo4j-small"
+DOMAIN_NAME="neo4j"                # default domain identifier; overridden by deployment.env or --domain-name below
+NAMESPACE="${DOMAIN_NAME}-ns"
+RELEASE_PREFIX="${DOMAIN_NAME}"
 
 CORE_COUNT=3
 GDS_COUNT=2   # conservative fallback (max footprint) if deployment.env is missing -- see below
@@ -148,27 +158,27 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/.." || exit 1
 
 # ---------------------------------------------------------------------------
-# Find and pick up what startall.sh actually deployed (cluster name, release
-# prefix, GDS count, etc.), recorded in deployed-<cluster>-<release>/
-# deployment.env. Without this, --cluster-name/--release-name/--gds-count on
-# startall.sh would have no way to be torn down correctly. Multiple such
-# directories can exist side by side (one per cluster+release combination
-# startall.sh has ever deployed here) -- narrow with --cluster-name/
-# --release-name when more than one matches; this script refuses to guess
-# rather than risk tearing down the wrong one. If nothing matches at all
-# (e.g. deployed-*/ was cleaned, or startall.sh was never run from this
-# checkout), fall back to the hardcoded defaults above, applying
-# --cluster-name/--release-name if given -- GDS_COUNT stays at the max (2)
-# in that case since over-attempting cleanup is harmless
-# (--ignore-not-found everywhere) but under-attempting it can orphan real
-# resources.
+# Find and pick up what startall.sh actually deployed (cluster name,
+# namespace, release prefix, GDS count, etc.), recorded in
+# deployed-<cluster>-<release>/deployment.env. Without this,
+# --cluster-name/--domain-name/--gds-count on startall.sh would have no way
+# to be torn down correctly. Multiple such directories can exist side by
+# side (one per cluster+release combination startall.sh has ever deployed
+# here) -- narrow with --cluster-name/--domain-name when more than one
+# matches; this script refuses to guess rather than risk tearing down the
+# wrong one. If nothing matches at all (e.g. deployed-*/ was cleaned, or
+# startall.sh was never run from this checkout), fall back to the hardcoded
+# defaults above, applying --cluster-name/--domain-name if given --
+# GDS_COUNT stays at the max (2) in that case since over-attempting cleanup
+# is harmless (--ignore-not-found everywhere) but under-attempting it can
+# orphan real resources.
 # ---------------------------------------------------------------------------
-if [[ -n "${CLUSTER_NAME_ARG}" && -n "${RELEASE_PREFIX_ARG}" ]]; then
-  GLOB_PATTERN="deployed-${CLUSTER_NAME_ARG}-${RELEASE_PREFIX_ARG}"
+if [[ -n "${CLUSTER_NAME_ARG}" && -n "${DOMAIN_NAME_ARG}" ]]; then
+  GLOB_PATTERN="deployed-${CLUSTER_NAME_ARG}-${DOMAIN_NAME_ARG}"
 elif [[ -n "${CLUSTER_NAME_ARG}" ]]; then
   GLOB_PATTERN="deployed-${CLUSTER_NAME_ARG}-*"
-elif [[ -n "${RELEASE_PREFIX_ARG}" ]]; then
-  GLOB_PATTERN="deployed-*-${RELEASE_PREFIX_ARG}"
+elif [[ -n "${DOMAIN_NAME_ARG}" ]]; then
+  GLOB_PATTERN="deployed-*-${DOMAIN_NAME_ARG}"
 else
   GLOB_PATTERN="deployed-*"
 fi
@@ -180,23 +190,83 @@ for d in ${GLOB_PATTERN}; do
 done
 shopt -u nullglob
 
+# DOMAIN_DIRS/DOMAIN_NAMESPACES/DOMAIN_RELEASE_PREFIXES/DOMAIN_GDS_COUNTS are
+# parallel arrays -- one entry per domain to process below in sections 1/2.
+# Normally that's a single domain, but --cluster-name given alone against
+# multiple matching domains fills in one entry per domain instead of
+# refusing to guess (see header comment).
+DOMAIN_DIRS=()
+DOMAIN_NAMESPACES=()
+DOMAIN_RELEASE_PREFIXES=()
+DOMAIN_GDS_COUNTS=()
+
 if [[ "${#MATCHES[@]}" -eq 1 ]]; then
   DEPLOYMENT_STATE_FILE="${MATCHES[0]}/deployment.env"
   echo "Using deployment parameters from ${DEPLOYMENT_STATE_FILE}."
   # shellcheck disable=SC1090
   source "${DEPLOYMENT_STATE_FILE}"
+  DOMAIN_DIRS=("${MATCHES[0]}")
+  DOMAIN_NAMESPACES=("${NAMESPACE}")
+  DOMAIN_RELEASE_PREFIXES=("${RELEASE_PREFIX}")
+  DOMAIN_GDS_COUNTS=("${GDS_COUNT}")
 elif [[ "${#MATCHES[@]}" -gt 1 ]]; then
-  echo "ERROR: multiple matching deployments found; pass --cluster-name and/or" \
-       "--release-name to pick one:" >&2
-  printf '  %s\n' "${MATCHES[@]}" >&2
-  exit 1
+  if [[ -n "${CLUSTER_NAME_ARG}" && -z "${DOMAIN_NAME_ARG}" ]]; then
+    echo "Multiple domains found under cluster ${CLUSTER_NAME_ARG}; processing all of them:"
+    printf '  %s\n' "${MATCHES[@]}"
+    for d in "${MATCHES[@]}"; do
+      # shellcheck disable=SC1090,SC1091
+      source "${d}/deployment.env"
+      DOMAIN_DIRS+=("${d}")
+      DOMAIN_NAMESPACES+=("${NAMESPACE}")
+      DOMAIN_RELEASE_PREFIXES+=("${RELEASE_PREFIX}")
+      DOMAIN_GDS_COUNTS+=("${GDS_COUNT}")
+    done
+  else
+    echo "ERROR: multiple matching deployments found; pass --cluster-name and/or" \
+         "--domain-name to pick one:" >&2
+    printf '  %s\n' "${MATCHES[@]}" >&2
+    exit 1
+  fi
 else
   [[ -n "${CLUSTER_NAME_ARG}" ]] && EKS_CLUSTER_NAME="${CLUSTER_NAME_ARG}"
-  [[ -n "${RELEASE_PREFIX_ARG}" ]] && RELEASE_PREFIX="${RELEASE_PREFIX_ARG}"
+  if [[ -n "${DOMAIN_NAME_ARG}" ]]; then
+    DOMAIN_NAME="${DOMAIN_NAME_ARG}"
+    NAMESPACE="${DOMAIN_NAME}-ns"
+    RELEASE_PREFIX="${DOMAIN_NAME}"
+  fi
   echo "No matching deployed-*/deployment.env found; using cluster=${EKS_CLUSTER_NAME}," \
-       "release-prefix=${RELEASE_PREFIX}, gds-count=${GDS_COUNT}."
+       "namespace=${NAMESPACE}, release-prefix=${RELEASE_PREFIX}, gds-count=${GDS_COUNT}."
+  DOMAIN_DIRS=("deployed-${EKS_CLUSTER_NAME}-${RELEASE_PREFIX}")
+  DOMAIN_NAMESPACES=("${NAMESPACE}")
+  DOMAIN_RELEASE_PREFIXES=("${RELEASE_PREFIX}")
+  DOMAIN_GDS_COUNTS=("${GDS_COUNT}")
 fi
-GDS_LBS=("${GDS_LBS_ALL[@]:0:GDS_COUNT}")
+
+# ---------------------------------------------------------------------------
+# Log everything (stdout+stderr) to a file in addition to the screen, so a
+# run can be reviewed/shared afterward without having to have redirected it
+# manually. Overwrites on each run -- this is a log of the current
+# invocation, not a running history.
+# ---------------------------------------------------------------------------
+if [[ "${#DOMAIN_DIRS[@]}" -gt 1 ]]; then
+  LOG_FILE="stopall-${EKS_CLUSTER_NAME}-all-domains.log"
+else
+  LOG_FILE="stopall-${DOMAIN_RELEASE_PREFIXES[0]}.log"
+fi
+exec > >(tee "${LOG_FILE}") 2>&1
+echo "Logging this run to ${LOG_FILE}"
+
+# Ensure every domain's scratch dir exists (mkdir -p is a no-op for the real
+# deployed-*/ directories from MATCHES; needed for the synthetic one in the
+# no-match fallback branch above). Each one doubles as that domain's scratch
+# space for the namespace-substituted LB manifest temp copies in section 2.
+# SCRATCH_DIR itself is for cluster-wide scratch (e.g. TMP_CLUSTER_CONFIG
+# below) -- arbitrarily the first domain's directory, since which one holds
+# it doesn't matter.
+for d in "${DOMAIN_DIRS[@]}"; do
+  mkdir -p "${d}"
+done
+SCRATCH_DIR="${DOMAIN_DIRS[0]}"
 
 # eksctl reads the cluster name to operate on from CLUSTER_CONFIG's own
 # metadata.name, not from EKS_CLUSTER_NAME -- if a custom cluster name was
@@ -204,9 +274,7 @@ GDS_LBS=("${GDS_LBS_ALL[@]:0:GDS_COUNT}")
 # startall.sh uses), or eksctl's nodegroup deletion below would silently
 # target/look for the wrong cluster (jhair-cluster).
 if [[ "${EKS_CLUSTER_NAME}" != "jhair-cluster" ]]; then
-  SCRATCH_DIR="deployed-${EKS_CLUSTER_NAME}-${RELEASE_PREFIX}"
-  mkdir -p "${SCRATCH_DIR}"
-  TMP_CLUSTER_CONFIG="$(mktemp "${SCRATCH_DIR}/eks-cluster-config.XXXXXX.yaml")"
+  TMP_CLUSTER_CONFIG="$(mktemp "${SCRATCH_DIR}/eks-cluster-config.XXXXXX")"
   trap 'rm -f "${TMP_CLUSTER_CONFIG}"' EXIT
   sed "s/^  name: .*/  name: ${EKS_CLUSTER_NAME}/" "${CLUSTER_CONFIG}" > "${TMP_CLUSTER_CONFIG}"
   CLUSTER_CONFIG="${TMP_CLUSTER_CONFIG}"
@@ -233,85 +301,116 @@ fi
 echo "kubectl context confirmed: ${CURRENT_CONTEXT}"
 
 # ---------------------------------------------------------------------------
-# 1. Uninstall Neo4j releases (--uninstall-neo4j)
+# 1+2. Per-domain teardown: Neo4j releases (--uninstall-neo4j) and load
+#      balancers (--undeploy-lb). Looped once per entry in DOMAIN_DIRS --
+#      normally just one domain, but --cluster-name given alone against
+#      multiple matching domains means every one of them here (see the
+#      discovery block above).
 # ---------------------------------------------------------------------------
-if [[ "${UNINSTALL_NEO4J}" == "true" ]]; then
-  CORE_RELEASES=$(for i in $(seq 1 "${CORE_COUNT}"); do echo -n "${RELEASE_PREFIX}-${i} "; done)
-  GDS_RELEASES=$(for i in $(seq 1 "${GDS_COUNT}"); do echo -n "${RELEASE_PREFIX}-gds-${i} "; done)
+if [[ "${UNINSTALL_NEO4J}" == "true" || "${UNDEPLOY_LB}" == "true" ]]; then
+  for idx in "${!DOMAIN_DIRS[@]}"; do
+    NAMESPACE="${DOMAIN_NAMESPACES[$idx]}"
+    RELEASE_PREFIX="${DOMAIN_RELEASE_PREFIXES[$idx]}"
+    GDS_COUNT="${DOMAIN_GDS_COUNTS[$idx]}"
+    GDS_LBS=("${GDS_LBS_ALL[@]:0:GDS_COUNT}")
+    DOMAIN_SCRATCH_DIR="${DOMAIN_DIRS[$idx]}"
 
-  echo "Uninstalling Neo4j releases..."
-  # shellcheck disable=SC2086
-  helm uninstall ${CORE_RELEASES} ${GDS_RELEASES} --namespace "${NAMESPACE}" --ignore-not-found
+    if [[ "${#DOMAIN_DIRS[@]}" -gt 1 ]]; then
+      echo "======================================================="
+      echo "Domain: release-prefix=${RELEASE_PREFIX}, namespace=${NAMESPACE}"
+      echo "======================================================="
+    fi
 
-  echo "Sleeping 30 seconds for pods to terminate..."
-  sleep 30
+    # -------------------------------------------------------------------------
+    # 1. Uninstall Neo4j releases (--uninstall-neo4j)
+    # -------------------------------------------------------------------------
+    if [[ "${UNINSTALL_NEO4J}" == "true" ]]; then
+      CORE_RELEASES=$(for i in $(seq 1 "${CORE_COUNT}"); do echo -n "${RELEASE_PREFIX}-${i} "; done)
+      GDS_RELEASES=$(for i in $(seq 1 "${GDS_COUNT}"); do echo -n "${RELEASE_PREFIX}-gds-${i} "; done)
 
-  # -------------------------------------------------------------------------
-  # 1b. Delete the data/transactions PVCs (and their PVs) for each
-  #     uninstalled release. These use reclaimPolicy: Retain (see
-  #     CLAUDE.md), so deleting the PVC alone leaves the PV behind in a
-  #     Released state -- delete both explicitly for a full wipe. Does NOT
-  #     touch pvc-efs-dynamic: that's the shared import/backup volume, not
-  #     tied to any single release.
-  # -------------------------------------------------------------------------
-  echo "Deleting data/transactions PVCs and PVs for all releases..."
-  # shellcheck disable=SC2086
-  for release in ${CORE_RELEASES} ${GDS_RELEASES}; do
-    for prefix in data transactions; do
-      PVC_NAME="${prefix}-${release}-0"
-      if kubectl get pvc "${PVC_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
-        PV_NAME="$(kubectl get pvc "${PVC_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.volumeName}')"
-        kubectl delete pvc "${PVC_NAME}" -n "${NAMESPACE}"
-        if [[ -n "${PV_NAME}" ]]; then
-          kubectl delete pv "${PV_NAME}" --ignore-not-found
-        fi
+      echo "Uninstalling Neo4j releases..."
+      # shellcheck disable=SC2086
+      helm uninstall ${CORE_RELEASES} ${GDS_RELEASES} --namespace "${NAMESPACE}" --ignore-not-found
+
+      echo "Sleeping 30 seconds for pods to terminate..."
+      sleep 30
+
+      # -----------------------------------------------------------------------
+      # 1b. Delete the data/transactions PVCs (and their PVs) for each
+      #     uninstalled release. These use reclaimPolicy: Retain (see
+      #     CLAUDE.md), so deleting the PVC alone leaves the PV behind in a
+      #     Released state -- delete both explicitly for a full wipe. Does NOT
+      #     touch pvc-efs-dynamic: that's the shared import/backup volume, not
+      #     tied to any single release.
+      # -----------------------------------------------------------------------
+      echo "Deleting data/transactions PVCs and PVs for all releases..."
+      # shellcheck disable=SC2086
+      for release in ${CORE_RELEASES} ${GDS_RELEASES}; do
+        for prefix in data transactions; do
+          PVC_NAME="${prefix}-${release}-0"
+          if kubectl get pvc "${PVC_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
+            PV_NAME="$(kubectl get pvc "${PVC_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.volumeName}')"
+            kubectl delete pvc "${PVC_NAME}" -n "${NAMESPACE}"
+            if [[ -n "${PV_NAME}" ]]; then
+              kubectl delete pv "${PV_NAME}" --ignore-not-found
+            fi
+          else
+            echo "PVC ${PVC_NAME} not found, skipping."
+          fi
+        done
+      done
+
+      # -----------------------------------------------------------------------
+      # 1c. Clean up leftover cleanup jobs/pods (the chart doesn't always clear them)
+      # -----------------------------------------------------------------------
+      echo "Deleting leftover core cleanup pods..."
+      CORE_CLEANUP=$(kubectl get pods -n "${NAMESPACE}" -o=name | awk -v p="${RELEASE_PREFIX}" '$0 ~ p"-[0-9]+-cleanup"{print $1}')
+      if [[ -n "${CORE_CLEANUP}" ]]; then
+        # shellcheck disable=SC2086
+        kubectl delete -n "${NAMESPACE}" ${CORE_CLEANUP}
       else
-        echo "PVC ${PVC_NAME} not found, skipping."
+        echo "None found."
       fi
-    done
+
+      echo "Deleting leftover GDS cleanup pods..."
+      GDS_CLEANUP=$(kubectl get pods -n "${NAMESPACE}" -o=name | awk -v p="${RELEASE_PREFIX}" '$0 ~ p"-gds-[0-9]+-cleanup"{print $1}')
+      if [[ -n "${GDS_CLEANUP}" ]]; then
+        # shellcheck disable=SC2086
+        kubectl delete -n "${NAMESPACE}" ${GDS_CLEANUP}
+      else
+        echo "None found."
+      fi
+    else
+      echo "Skipping Neo4j uninstall (pass --uninstall-neo4j to uninstall it)."
+    fi
+
+    # -------------------------------------------------------------------------
+    # 2. Load balancers (--undeploy-lb)
+    # -------------------------------------------------------------------------
+    if [[ "${UNDEPLOY_LB}" == "true" ]]; then
+      echo "Deleting load balancers..."
+      # CORE_LB/GDS_LBS hardcode namespace: "neo4j-ns" -- kubectl delete -f
+      # matches namespace+name from the manifest itself, not the object's
+      # actual namespace, so delete via temp copies with the real namespace
+      # substituted (same pattern startall.sh uses to apply them).
+      TMP_CORE_LB="$(mktemp "${DOMAIN_SCRATCH_DIR}/core-lb.XXXXXX")"
+      sed "s/namespace: \"neo4j-ns\"/namespace: \"${NAMESPACE}\"/" "${CORE_LB}" > "${TMP_CORE_LB}"
+      kubectl delete -f "${TMP_CORE_LB}" --wait=false --ignore-not-found
+      for lb in "${GDS_LBS[@]}"; do
+        TMP_GDS_LB="$(mktemp "${DOMAIN_SCRATCH_DIR}/gds-lb.XXXXXX")"
+        sed "s/namespace: \"neo4j-ns\"/namespace: \"${NAMESPACE}\"/" "${lb}" > "${TMP_GDS_LB}"
+        kubectl delete -f "${TMP_GDS_LB}" --wait=false --ignore-not-found
+      done
+    else
+      echo "Skipping load balancer deletion (pass --undeploy-lb to remove them)."
+    fi
   done
 
-  # -------------------------------------------------------------------------
-  # 1c. Clean up leftover cleanup jobs/pods (the chart doesn't always clear them)
-  # -------------------------------------------------------------------------
-  echo "Deleting leftover core cleanup pods..."
-  CORE_CLEANUP=$(kubectl get pods -n "${NAMESPACE}" -o=name | awk -v p="${RELEASE_PREFIX}" '$0 ~ p"-[0-9]+-cleanup"{print $1}')
-  if [[ -n "${CORE_CLEANUP}" ]]; then
-    # shellcheck disable=SC2086
-    kubectl delete -n "${NAMESPACE}" ${CORE_CLEANUP}
-  else
-    echo "None found."
-  fi
-
-  echo "Deleting leftover GDS cleanup pods..."
-  GDS_CLEANUP=$(kubectl get pods -n "${NAMESPACE}" -o=name | awk -v p="${RELEASE_PREFIX}" '$0 ~ p"-gds-[0-9]+-cleanup"{print $1}')
-  if [[ -n "${GDS_CLEANUP}" ]]; then
-    # shellcheck disable=SC2086
-    kubectl delete -n "${NAMESPACE}" ${GDS_CLEANUP}
-  else
-    echo "None found."
-  fi
-else
-  echo "Skipping Neo4j uninstall (pass --uninstall-neo4j to uninstall it)."
-fi
-
-# ---------------------------------------------------------------------------
-# 2. Load balancers (--undeploy-lb)
-# ---------------------------------------------------------------------------
-if [[ "${UNDEPLOY_LB}" == "true" ]]; then
-  echo "Deleting load balancers..."
-  kubectl delete -f "${CORE_LB}" --wait=false --ignore-not-found
-  for lb in "${GDS_LBS[@]}"; do
-    kubectl delete -f "${lb}" --wait=false --ignore-not-found
-  done
-
-  if [[ "${REMOVE_CLUSTER}" == "true" ]]; then
+  if [[ "${UNDEPLOY_LB}" == "true" && "${REMOVE_CLUSTER}" == "true" ]]; then
     echo "Sleeping 30 seconds so the AWS Load Balancer Controller can start" \
          "deleting the real NLBs before the nodegroup that runs it is destroyed..."
     sleep 30
   fi
-else
-  echo "Skipping load balancer deletion (pass --undeploy-lb to remove them)."
 fi
 
 # ---------------------------------------------------------------------------
@@ -419,14 +518,14 @@ if [[ "${REMOVE_CLUSTER}" == "true" ]]; then
     delete_stack_with_force_fallback "eksctl-${EKS_CLUSTER_NAME}-cluster"
   fi
 
-  # The cluster is gone; a deployed-*/ directory found via the discovery
-  # logic above (as opposed to a manual --cluster-name/--release-name
-  # override with no matching directory) is now stale and would otherwise
-  # sit around as an ambiguous match for a future stopall.sh run.
-  if [[ "${#MATCHES[@]}" -eq 1 ]]; then
-    echo "Removing ${MATCHES[0]} (deployment torn down)..."
-    rm -rf "${MATCHES[0]}"
-  fi
+  # The cluster is gone; every domain directory processed above (whether
+  # from the discovery logic or the synthetic no-match fallback) is now
+  # stale and would otherwise sit around as an ambiguous match for a future
+  # stopall.sh run.
+  for d in "${DOMAIN_DIRS[@]}"; do
+    echo "Removing ${d} (deployment torn down)..."
+    rm -rf "${d}"
+  done
 else
   echo "Skipping nodegroup/cluster/EFS removal (pass --all to delete them)."
 fi
