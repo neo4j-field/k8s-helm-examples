@@ -23,12 +23,16 @@ run it" side.
 | Component | Name |
 |---|---|
 | EKS cluster | `jhair-cluster` |
-| Nodegroup | `neo4j-ng` |
-| Namespace | `neo4j-ns` |
-| Core Helm releases | `neo4j-1`, `neo4j-2`, `neo4j-3` |
-| GDS Helm releases | `neo4j-gds-1`, `neo4j-gds-2` |
+| Nodegroup | `neo4j-small` |
+| Namespace | `<domain-name>-ns` (default domain `neo4j` → `neo4j-ns`) |
+| Core Helm releases | `<domain-name>-1`, `<domain-name>-2`, `<domain-name>-3` (default → `neo4j-1/2/3`) |
+| GDS Helm releases | `<domain-name>-gds-1`, `<domain-name>-gds-2` (default → `neo4j-gds-1/2`) |
 | Core load balancer | `neo4j-core-lb` (manifest: `lb-neo4j-core.yaml`) |
 | GDS load balancers | `neo4j-gds-1-lb`, `neo4j-gds-2-lb` (manifests: `lb1-gds.yaml`, `lb2-gds.yaml`) |
+
+`--domain-name` (see below) drives both the namespace and the Helm release
+prefix, so independent domains (e.g. `claims`, `customers`) can be deployed
+side by side on the same cluster, each fully isolated in its own namespace.
 
 ## Load balancer → Neo4j port mapping
 
@@ -62,33 +66,58 @@ the `service.beta.kubernetes.io/aws-load-balancer-ssl-cert`/
 # Add 1 or 2 GDS secondaries (and their load balancers) -- default is 0:
 ./scripts/startall.sh --gds-count 2
 
-# Optionally override the EKS cluster name and/or the Helm release name
-# prefix (defaults: jhair-cluster, neo4j):
-./scripts/startall.sh --cluster-name my-cluster --release-name mydb
+# Optionally override the EKS cluster name and/or the domain name (defaults:
+# jhair-cluster, neo4j). --domain-name drives the namespace (<domain-name>-ns)
+# and the Helm release prefix (<domain-name>-1/2/3, <domain-name>-gds-1/2):
+./scripts/startall.sh --cluster-name my-cluster --domain-name mydb
 ```
 
+### Multiple domains on one cluster
+
+Since `--domain-name` fully namespaces a deployment, independent domains can
+be deployed side by side on the same cluster/nodegroup:
+
+```bash
+./scripts/startall.sh --domain-name claims
+./scripts/startall.sh --domain-name customers
+```
+
+Each gets its own namespace, Helm releases, and load balancers. They share
+the same nodegroup/EFS filesystem/storage classes, so make sure the
+nodegroup's node count (see `eks_create_cluster-jhair.yaml`'s `neo4j-small`
+`desiredCapacity`/`maxSize`) is large enough for every domain's pods — one
+node per Neo4j pod (core + GDS secondaries), per Neo4j's own recommendation
+against colocating more than one server per node.
+
 `startall.sh` writes any files it needs to generate for a deployment into
-`deployed-<cluster>-<release>/` (gitignored) — one directory per
-cluster+release combination, so multiple deployments can coexist without
+`deployed-<cluster>-<domain>/` (gitignored) — one directory per
+cluster+domain combination, so multiple deployments can coexist without
 overwriting each other's record. This includes `deployment.env`, which
-records the cluster name, release prefix, and GDS count actually used.
-`stopall.sh` finds these automatically:
+records the cluster name, namespace, release prefix, nodegroup scaling
+config, and GDS count actually used. `stopall.sh` finds these automatically:
 
 ```bash
 # If exactly one deployed-*/ directory exists, stopall.sh uses it without
 # any extra flags:
 ./scripts/stopall.sh --uninstall-neo4j
 
-# If you've deployed more than one (different --cluster-name/--release-name),
+# If you've deployed more than one (different --cluster-name/--domain-name),
 # point stopall.sh at the right one the same way you deployed it:
-./scripts/stopall.sh --all --cluster-name my-cluster --release-name mydb
+./scripts/stopall.sh --all --cluster-name my-cluster --domain-name mydb
 ```
 
-If more than one `deployed-*/` directory matches, `stopall.sh` lists them
-and asks you to disambiguate rather than guessing which cluster to tear
-down. A good place to redirect log output too, e.g.
-`./scripts/startall.sh --all | tee deployed-jhair-cluster-neo4j/startup.log`
-(pick the directory name matching what you're deploying).
+If more than one `deployed-*/` directory matches and `--cluster-name` alone
+doesn't narrow it to one, `stopall.sh` lists them and asks you to
+disambiguate with `--domain-name` too rather than guessing which cluster to
+tear down. Passing `--cluster-name` **alone** against multiple matching
+domains is not treated as ambiguous, though — every domain under that
+cluster is torn down (there's nothing unclear about "tear down everything
+on this cluster").
+
+Every run of `startall.sh`/`stopall.sh` also logs its full output to
+`startup-<domain>.log`/`stopall-<domain>.log` (or `stopall-<cluster>-all-domains.log`
+when tearing down multiple domains in one run) in addition to the screen —
+no manual `tee` redirection needed.
 
 At the end, `startall.sh` prints the Bolt/Browser URLs for the core LB and
 each GDS LB (if any), plus the login credentials. If you deployed GDS
