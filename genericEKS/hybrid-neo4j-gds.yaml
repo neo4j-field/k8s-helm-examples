@@ -13,6 +13,17 @@ image:
   #If a custom domain is in use
 #clusterDomain: "neo4j.cluster.local"
 
+# Same shared Bolt TLS secret as neo4j-core.yaml -- GDS secondaries need the
+# identical cert/key so the cluster is uniformly reachable via neo4j+ssc://.
+# See the comment in neo4j-core.yaml for why the matching
+# dbms.ssl.policy.bolt.*/server.bolt.tls_level config isn't set here manually.
+ssl:
+  bolt:
+    privateKey:
+      secretName: neo4j-bolt-cert
+    publicCertificate:
+      secretName: neo4j-bolt-cert
+
 neo4j:
   # Must match neo4j-core.yaml's neo4j.name: this sets the "app" label
   # used by the chart's Kubernetes-based cluster-discovery service. A
@@ -21,8 +32,8 @@ neo4j:
   # they hang forever trying to join a cluster they can't discover.
   name: "neo4j-hybrid-cluster"
   resources:
-    cpu: 1.5
-    memory: "7G"
+    cpu: "7"
+    memory: "28G"
   # Uncomment to set the initial password
   #password: ""
   passwordFromSecret: "neo4jpwd"
@@ -55,14 +66,23 @@ config:
   server.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
   dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
   server.directories.plugins: "/var/lib/neo4j/plugins"
-  server.memory.heap.initial_size: "4G"
-  server.memory.heap.max_size: "4G"
-  server.memory.pagecache.size: "1G"
+  server.memory.heap.initial_size: "12G"
+  server.memory.heap.max_size: "12G"
+  server.memory.pagecache.size: "8G"
   server.directories.transaction.logs.root: /transactions
   initial.server.mode_constraint: "SECONDARY"
   server.cluster.system_database_mode: "SECONDARY"
   db.tx_log.rotation.retention_policy: "1 hours"
   initial.server.tags: "gds"
+  dbms.security.keystore.path: /keystore/neo4j.keystore
+  dbms.security.keystore.password: changeit
+  dbms.security.key.name: neo4j-key
+  # Server-side routing, same reasoning/setting as neo4j-core.yaml -- must be
+  # enabled cluster-wide (every server in the DBMS topology, not just core),
+  # or a query that gets internally forwarded to/through a GDS secondary has
+  # no routing connector to receive it on.
+  dbms.routing.enabled: "true"
+  dbms.routing.default_router: "SERVER"
 
 
 apoc_config:
@@ -78,11 +98,17 @@ additionalVolumeMounts:
   - name: license-keys
     mountPath: /licenses/local
     readOnly: true
+  - name: neo4j-keystore
+    mountPath: /keystore
+    readOnly: true
 
 additionalVolumes:
   - name: license-keys
     configMap:
       name: license-config
+  - name: neo4j-keystore
+    secret:
+      secretName: neo4j-keystore
 
 volumes:
   data:

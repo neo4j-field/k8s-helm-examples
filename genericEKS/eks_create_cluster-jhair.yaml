@@ -152,7 +152,7 @@ managedNodeGroups:
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
   - name: neo4j-small
-    instanceType: m7g.large
+    instanceType: m7g.2xlarge # 8 vCPU/32 GiB
     iam:
       withAddonPolicies:
         ebs: true

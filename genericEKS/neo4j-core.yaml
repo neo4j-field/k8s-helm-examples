@@ -10,11 +10,26 @@ image:
 #If a custom domain is in use
 #clusterDomain: "neo4j.cluster.local"
 
+# Self-signed Bolt TLS cert (shared across the whole cluster -- core and GDS
+# secondaries alike) so remote database alias / driver connections can use
+# neo4j+ssc:// (encrypted, no CA validation). The chart auto-derives
+# dbms.ssl.policy.bolt.enabled and server.bolt.tls_level=REQUIRED from this
+# block -- do NOT also set those under `config:` or the rendered ConfigMap
+# will end up with duplicate keys. REQUIRED means every Bolt client (Browser,
+# drivers, cypher-shell) must switch to neo4j+ssc://; plain bolt:// stops
+# working once this is applied.
+ssl:
+  bolt:
+    privateKey:
+      secretName: neo4j-bolt-cert
+    publicCertificate:
+      secretName: neo4j-bolt-cert
+
 neo4j:
   name: "neo4j-hybrid-cluster"
   resources:
-    cpu: "1"
-    memory: "6G"
+    cpu: "7"
+    memory: "28G"
   # Uncomment to set the initial password
   #password: ""
   passwordFromSecret: "neo4jpwd"
@@ -47,9 +62,9 @@ config:
   server.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
   dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
   server.directories.plugins: "/var/lib/neo4j/plugins"
-  server.memory.heap.initial_size: "3G"
-  server.memory.heap.max_size: "3G"
-  server.memory.pagecache.size: "1G"
+  server.memory.heap.initial_size: "16G"
+  server.memory.heap.max_size: "16G"
+  server.memory.pagecache.size: "10G"
   server.directories.transaction.logs.root: /transactions
   initial.server.mode_constraint: "PRIMARY"
   initial.dbms.default_primaries_count: "3"
@@ -66,6 +81,20 @@ config:
   server.metrics.csv.rotation.keep_number: "5"
   server.metrics.csv.rotation.compression: "NONE"
   db.tx_log.rotation.retention_policy: "1 hours"
+  dbms.security.keystore.path: /keystore/neo4j.keystore
+  dbms.security.keystore.password: changeit
+  dbms.security.key.name: neo4j-key
+  # Server-side routing: lb-neo4j-core.yaml is ONE shared LB fronting all 3
+  # core pods, so the internal addresses (*.svc.cluster.local) that
+  # client-side routing (the neo4j:// default) hands back are unreachable
+  # from outside the cluster -- see CALL dbms.cluster.routing.getRoutingTable
+  # returning those internal hostnames. default_router=SERVER makes each
+  # member return a single-entry routing table (itself) and forward the
+  # query internally instead, so neo4j+s/neo4j+ssc work through the one
+  # shared LB. https://neo4j.com/docs/operations-manual/current/kubernetes/quickstart-cluster/access-outside-k8s/
+  dbms.routing.enabled: "true"
+  dbms.routing.default_router: "SERVER"
+
 
 
 apoc_config:
@@ -81,11 +110,17 @@ additionalVolumeMounts:
   - name: license-keys
     mountPath: /licenses/local
     readOnly: true
+  - name: neo4j-keystore
+    mountPath: /keystore
+    readOnly: true
 
 additionalVolumes:
   - name: license-keys
     configMap:
       name: license-config
+  - name: neo4j-keystore
+    secret:
+      secretName: neo4j-keystore
 
 volumes:
   data:

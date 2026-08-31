@@ -113,6 +113,9 @@ NAMESPACE="${DOMAIN_NAME}-ns"                # lb-neo4j-core.yaml/lb1-gds.yaml/l
 
 CORE_VALUES="neo4j-core.yaml"                # 3 core PRIMARY members
 GDS_VALUES="hybrid-neo4j-gds.yaml"           # up to 2 secondary GDS members
+# Pinned explicitly rather than left to float: without --version, `helm upgrade -i` silently installs whatever chart happens to be
+# in the local Helm cache at run time. Run `helm repo update` first
+CHART_VERSION="2026.7.1"
 CORE_COUNT=3
 GDS_COUNT="${GDS_COUNT_ARG:-0}"              # 0/1/2 secondary GDS members (opt-in, overridable via --gds-count)
 
@@ -280,6 +283,54 @@ kubectl create configmap license-config \
   --namespace "${NAMESPACE}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
+# Shared keystore for composite database alias password encryption
+# (neo4j-core.yaml/hybrid-neo4j-gds.yaml's dbms.security.keystore.* config).
+# All cluster members must use the same key, so this is generated once per
+# deployment (into SCRATCH_DIR, alongside deployment.env) and reused on
+# subsequent runs -- regenerating it would leave any alias password already
+# encrypted with the old key undecryptable.
+KEYSTORE_FILE="${SCRATCH_DIR}/neo4j.keystore"
+KEYSTORE_PASSWORD="changeit"
+KEYSTORE_ALIAS="neo4j-key"
+if [[ ! -f "${KEYSTORE_FILE}" ]]; then
+  echo "Generating shared keystore (${KEYSTORE_FILE}) for composite database alias encryption..."
+  keytool -genseckey -keyalg aes -keysize 256 -storetype pkcs12 \
+    -keystore "${KEYSTORE_FILE}" -alias "${KEYSTORE_ALIAS}" -storepass "${KEYSTORE_PASSWORD}"
+else
+  echo "Shared keystore (${KEYSTORE_FILE}) already exists; reusing it so existing alias passwords stay decryptable."
+fi
+
+echo "Ensuring keystore secret (neo4j-keystore)..."
+kubectl create secret generic neo4j-keystore \
+  --from-file=neo4j.keystore="${KEYSTORE_FILE}" \
+  --namespace "${NAMESPACE}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Self-signed Bolt TLS cert, shared across every core and GDS member (see the
+# `ssl:` block in neo4j-core.yaml/hybrid-neo4j-gds.yaml) so remote database
+# alias / driver connections can use neo4j+ssc://. Generated once per
+# deployment for the same reason as the keystore above -- regenerating it
+# would change the cert every run, which is harmless for neo4j+ssc (it never
+# validates against a CA) but pointlessly invalidates anything that pinned
+# the old cert's fingerprint.
+BOLT_CERT_KEY="${SCRATCH_DIR}/private.key"
+BOLT_CERT_CRT="${SCRATCH_DIR}/public.crt"
+if [[ ! -f "${BOLT_CERT_KEY}" || ! -f "${BOLT_CERT_CRT}" ]]; then
+  echo "Generating self-signed Bolt TLS cert (${BOLT_CERT_CRT})..."
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "${BOLT_CERT_KEY}"
+  openssl req -new -x509 -key "${BOLT_CERT_KEY}" -out "${BOLT_CERT_CRT}" \
+    -days 3650 -subj "/CN=${RELEASE_PREFIX}-hybrid-cluster"
+else
+  echo "Self-signed Bolt TLS cert (${BOLT_CERT_CRT}) already exists; reusing it."
+fi
+
+echo "Ensuring Bolt TLS cert secret (neo4j-bolt-cert)..."
+kubectl create secret generic neo4j-bolt-cert \
+  --from-file=private.key="${BOLT_CERT_KEY}" \
+  --from-file=public.crt="${BOLT_CERT_CRT}" \
+  --namespace "${NAMESPACE}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 echo "Waiting for at least one Ready node labeled eks.amazonaws.com/nodegroup=${NODEGROUP}..."
 for i in $(seq 1 30); do
   READY_NODE=$(kubectl get nodes -l "eks.amazonaws.com/nodegroup=${NODEGROUP}" \
@@ -416,16 +467,16 @@ fi
 # ---------------------------------------------------------------------------
 # 4. Neo4j members
 # ---------------------------------------------------------------------------
-echo "Installing ${CORE_COUNT} core member(s)..."
+echo "Installing ${CORE_COUNT} core member(s) (chart version ${CHART_VERSION})..."
 for i in $(seq 1 "${CORE_COUNT}"); do
-  helm upgrade -i "${RELEASE_PREFIX}-${i}" neo4j/neo4j --namespace "${NAMESPACE}" -f "${CORE_VALUES}"
+  helm upgrade -i "${RELEASE_PREFIX}-${i}" neo4j/neo4j --version "${CHART_VERSION}" --namespace "${NAMESPACE}" -f "${CORE_VALUES}"
   sleep "${SLEEP_BETWEEN}"
 done
 
 if [[ "${GDS_COUNT}" -gt 0 ]]; then
-  echo "Installing ${GDS_COUNT} GDS member(s)..."
+  echo "Installing ${GDS_COUNT} GDS member(s) (chart version ${CHART_VERSION})..."
   for i in $(seq 1 "${GDS_COUNT}"); do
-    helm upgrade -i "${RELEASE_PREFIX}-gds-${i}" neo4j/neo4j --namespace "${NAMESPACE}" -f "${GDS_VALUES}"
+    helm upgrade -i "${RELEASE_PREFIX}-gds-${i}" neo4j/neo4j --version "${CHART_VERSION}" --namespace "${NAMESPACE}" -f "${GDS_VALUES}"
     sleep "${SLEEP_BETWEEN}"
   done
 else
@@ -482,9 +533,14 @@ wait_for_lb_hostname() {
   echo "${hostname}"
 }
 
-# Scheme depends on whether TLS termination is enabled (uncommented ssl-cert
-# annotation) in the manifest that created the LB -- see CLAUDE.md/"LBs require
-# AWS Load Balancer Controller" for why this may be plain TCP passthrough.
+# HTTP scheme depends on whether TLS termination is enabled (uncommented
+# ssl-cert annotation) in the manifest that created the LB -- see CLAUDE.md/
+# "LBs require AWS Load Balancer Controller" for why this may be plain TCP
+# passthrough. This is unrelated to Bolt below: Bolt TLS is now terminated by
+# Neo4j itself (self-signed cert via neo4j-core.yaml/hybrid-neo4j-gds.yaml's
+# `ssl.bolt` block, server.bolt.tls_level=REQUIRED), not by the LB, and is
+# always on regardless of this annotation -- so the Bolt scheme is always
+# "+ssc" (encrypted, no CA validation) rather than conditional on the LB.
 lb_uses_tls() {
   grep -qE '^\s*service\.beta\.kubernetes\.io/aws-load-balancer-ssl-cert:' "$1"
 }
@@ -492,7 +548,8 @@ lb_uses_tls() {
 echo "Waiting for load balancer hostnames (this can take a few minutes)..."
 CORE_LB_SVC="$(grep -m1 '^\s*name:' "${CORE_LB}" | awk '{print $2}')"
 CORE_HOST="$(wait_for_lb_hostname "${CORE_LB_SVC}")"
-if lb_uses_tls "${CORE_LB}"; then CORE_SCHEME_BOLT="bolt+s"; CORE_SCHEME_HTTP="https"; else CORE_SCHEME_BOLT="bolt"; CORE_SCHEME_HTTP="http"; fi
+CORE_SCHEME_BOLT="bolt+ssc"
+if lb_uses_tls "${CORE_LB}"; then CORE_SCHEME_HTTP="https"; else CORE_SCHEME_HTTP="http"; fi
 
 GDS_HOSTS=()
 GDS_SCHEMES=()
@@ -500,7 +557,7 @@ for lb in "${GDS_LBS[@]}"; do
   svc="$(grep -m1 '^\s*name:' "${lb}" | awk '{print $2}')"
   host="$(wait_for_lb_hostname "${svc}")"
   GDS_HOSTS+=("${host}")
-  if lb_uses_tls "${lb}"; then GDS_SCHEMES+=("bolt+s https"); else GDS_SCHEMES+=("bolt http"); fi
+  if lb_uses_tls "${lb}"; then GDS_SCHEMES+=("bolt+ssc https"); else GDS_SCHEMES+=("bolt+ssc http"); fi
 done
 
 echo "-------------------------------------------------------"
