@@ -94,8 +94,8 @@ config:
   # shared LB. https://neo4j.com/docs/operations-manual/current/kubernetes/quickstart-cluster/access-outside-k8s/
   dbms.routing.enabled: "true"
   dbms.routing.default_router: "SERVER"
-
-
+  dbms.routing.load_balancing.plugin: server_policies
+  dbms.routing.load_balancing.config.server_policies.gds: tags(gds); halt();
 
 apoc_config:
   apoc.export.file.enabled: "true"

@@ -73,7 +73,6 @@ config:
   initial.server.mode_constraint: "SECONDARY"
   server.cluster.system_database_mode: "SECONDARY"
   db.tx_log.rotation.retention_policy: "1 hours"
-  initial.server.tags: "gds"
   dbms.security.keystore.path: /keystore/neo4j.keystore
   dbms.security.keystore.password: changeit
   dbms.security.key.name: neo4j-key
@@ -83,7 +82,9 @@ config:
   # no routing connector to receive it on.
   dbms.routing.enabled: "true"
   dbms.routing.default_router: "SERVER"
-
+  initial.server.tags: "gds"
+  dbms.routing.load_balancing.plugin: server_policies
+  dbms.routing.load_balancing.config.server_policies.gds: tags(gds); halt();
 
 apoc_config:
   apoc.export.file.enabled: "true"
