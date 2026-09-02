@@ -131,7 +131,7 @@ managedNodeGroups:
     availabilityZones: ["us-east-2a", "us-east-2c"]
     ssh:
       allow: true # will use ~/.ssh/id_rsa.pub as the default ssh key
-  - name: gdstraining
+  - name: neo4j-4xlarge
     instanceType: r7g.4xlarge
     iam:
       withAddonPolicies:
@@ -141,9 +141,9 @@ managedNodeGroups:
         awsLoadBalancerController: true
         xRay: true
         cloudWatch: true
-    desiredCapacity: 1
+    desiredCapacity: 8
     minSize: 1
-    maxSize: 3
+    maxSize: 10
     labels: {role: eks-m6axl}
     tags:
       {Department: gdstraining}

@@ -23,7 +23,8 @@ run it" side.
 | Component | Name |
 |---|---|
 | EKS cluster | `jhair-cluster` |
-| Nodegroup | `neo4j-small` |
+| Core nodegroup | `neo4j-small` (override with `--nodegroup`) |
+| GDS nodegroup | `gdslarge` (override with `--gds-nodegroup`; ~2x a core member's CPU/memory, per GDS's own sizing rule of thumb) |
 | Namespace | `<domain-name>-ns` (default domain `neo4j` → `neo4j-ns`) |
 | Core Helm releases | `<domain-name>-1`, `<domain-name>-2`, `<domain-name>-3` (default → `neo4j-1/2/3`) |
 | GDS Helm releases | `<domain-name>-gds-1`, `<domain-name>-gds-2` (default → `neo4j-gds-1/2`) |
@@ -70,31 +71,43 @@ the `service.beta.kubernetes.io/aws-load-balancer-ssl-cert`/
 # jhair-cluster, neo4j). --domain-name drives the namespace (<domain-name>-ns)
 # and the Helm release prefix (<domain-name>-1/2/3, <domain-name>-gds-1/2):
 ./scripts/startall.sh --cluster-name my-cluster --domain-name mydb
+
+# Pin this domain's core members and/or GDS secondaries to specific
+# nodegroups (both must already exist in eks_create_cluster-jhair.yaml;
+# defaults: neo4j-small, gdslarge):
+./scripts/startall.sh --domain-name mydb --nodegroup neo4j-4xlarge --gds-nodegroup gdslarge
 ```
 
 ### Multiple domains on one cluster
 
 Since `--domain-name` fully namespaces a deployment, independent domains can
-be deployed side by side on the same cluster/nodegroup:
+be deployed side by side on the same cluster:
 
 ```bash
-./scripts/startall.sh --domain-name claims
-./scripts/startall.sh --domain-name customers
+./scripts/startall.sh --domain-name claims --nodegroup neo4j-4xlarge --gds-count 1
+./scripts/startall.sh --domain-name customers --nodegroup neo4j-small --gds-count 1
 ```
 
-Each gets its own namespace, Helm releases, and load balancers. They share
-the same nodegroup/EFS filesystem/storage classes, so make sure the
-nodegroup's node count (see `eks_create_cluster-jhair.yaml`'s `neo4j-small`
-`desiredCapacity`/`maxSize`) is large enough for every domain's pods — one
-node per Neo4j pod (core + GDS secondaries), per Neo4j's own recommendation
-against colocating more than one server per node.
+Each gets its own namespace, Helm releases, and load balancers, and can pin
+its core members to a different nodegroup via `--nodegroup` (see above). What
+they still share by default: the EFS filesystem/storage classes, and the
+`gdslarge` nodegroup every domain's GDS secondaries land on unless
+`--gds-nodegroup` says otherwise. Make sure each nodegroup's node count (see
+`eks_create_cluster-jhair.yaml`) is large enough for however many domains
+actually schedule onto it — one node per Neo4j pod (core + GDS secondaries),
+per Neo4j's own recommendation against colocating more than one server per
+node. Because `gdslarge` defaults identically for every domain, tearing one
+domain down with `stopall.sh --all` will delete it out from under any other
+domain's still-running GDS members unless that domain is torn down in the
+same invocation (see `CLAUDE.md`).
 
 `startall.sh` writes any files it needs to generate for a deployment into
 `deployed-<cluster>-<domain>/` (gitignored) — one directory per
 cluster+domain combination, so multiple deployments can coexist without
 overwriting each other's record. This includes `deployment.env`, which
-records the cluster name, namespace, release prefix, nodegroup scaling
-config, and GDS count actually used. `stopall.sh` finds these automatically:
+records the cluster name, namespace, release prefix, core/GDS nodegroup
+scaling config, and GDS count actually used. `stopall.sh` finds these
+automatically:
 
 ```bash
 # If exactly one deployed-*/ directory exists, stopall.sh uses it without
@@ -160,6 +173,12 @@ image. If you need a custom image (e.g. with GDS baked in instead of
 installed via plugin), see [`docker/README.md`](docker/README.md).
 
 ## Other files
+
+[`architecture-diagram.html`](architecture-diagram.html) is a standalone,
+open-in-a-browser diagram of a two-domain deployment (`customers-ns` +
+`claims-ns`) — namespaces, load balancer routing (including why the GDS LB
+reaches only its one GDS pod), and the shared nodegroup/EFS dependencies
+between domains. Open the file directly; it needs nothing installed.
 
 `misc-examples/` holds root-level files kept for reference that aren't
 read by `startall.sh`/`stopall.sh` at all: standalone helper scripts whose

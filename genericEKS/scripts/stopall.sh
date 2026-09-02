@@ -29,8 +29,10 @@
 #                        these, see CLAUDE.md); delete leftover *-cleanup
 #                        pods.
 #   --undeploy-lb        Delete all 3 load balancers (core + 2 GDS).
-#   --all                Delete the nodegroup, the EKS cluster (and its
-#                        CloudFormation stacks), and the shared EFS
+#   --all                Delete every processed domain's core + GDS
+#                        nodegroup (deduped -- see NODEGROUPS_TO_DELETE),
+#                        the EKS cluster (and its CloudFormation stacks),
+#                        and the shared EFS
 #                        filesystem/mount targets/security group.
 #
 #                        Implies --undeploy-lb: the AWS Load Balancer
@@ -80,8 +82,9 @@ Options (independent and combinable):
                        CLAUDE.md).
   --undeploy-lb        Delete the core load balancer and however many GDS
                        load balancers were actually deployed (0-2).
-  --all                Delete the nodegroup, the EKS cluster, and the shared
-                       EFS filesystem. Implies --undeploy-lb and
+  --all                Delete every processed domain's core + GDS nodegroup
+                       (deduped), the EKS cluster, and the shared EFS
+                       filesystem. Implies --undeploy-lb and
                        --uninstall-neo4j (see script header comment for why:
                        skipping either orphans real, still-billing AWS
                        resources once the cluster is gone).
@@ -141,6 +144,7 @@ CLUSTER_CONFIG="eks_create_cluster-jhair.yaml"
 EKS_CLUSTER_NAME="jhair-cluster"   # metadata.name in CLUSTER_CONFIG
 EKS_REGION="us-east-2"             # metadata.region in CLUSTER_CONFIG
 NODEGROUP="neo4j-small"
+GDS_NODEGROUP="gdslarge"           # conservative fallback if deployment.env is missing -- see GDS_COUNT below
 DOMAIN_NAME="neo4j"                # default domain identifier; overridden by deployment.env or --domain-name below
 NAMESPACE="${DOMAIN_NAME}-ns"
 RELEASE_PREFIX="${DOMAIN_NAME}"
@@ -190,15 +194,22 @@ for d in ${GLOB_PATTERN}; do
 done
 shopt -u nullglob
 
-# DOMAIN_DIRS/DOMAIN_NAMESPACES/DOMAIN_RELEASE_PREFIXES/DOMAIN_GDS_COUNTS are
-# parallel arrays -- one entry per domain to process below in sections 1/2.
-# Normally that's a single domain, but --cluster-name given alone against
-# multiple matching domains fills in one entry per domain instead of
-# refusing to guess (see header comment).
+# DOMAIN_DIRS/DOMAIN_NAMESPACES/DOMAIN_RELEASE_PREFIXES/DOMAIN_GDS_COUNTS/
+# DOMAIN_NODEGROUPS/DOMAIN_GDS_NODEGROUPS are parallel arrays -- one entry
+# per domain to process below in sections 1/2. Normally that's a single
+# domain, but --cluster-name given alone against multiple matching domains
+# fills in one entry per domain instead of refusing to guess (see header
+# comment). DOMAIN_NODEGROUPS/DOMAIN_GDS_NODEGROUPS feed section 3 below,
+# which dedupes across all processed domains before deleting -- each
+# domain's core/GDS nodegroup can differ (or be shared with another domain,
+# e.g. GDS_NODEGROUP defaults to "gdslarge" for every domain), so a single
+# NODEGROUP variable can't represent them all.
 DOMAIN_DIRS=()
 DOMAIN_NAMESPACES=()
 DOMAIN_RELEASE_PREFIXES=()
 DOMAIN_GDS_COUNTS=()
+DOMAIN_NODEGROUPS=()
+DOMAIN_GDS_NODEGROUPS=()
 
 if [[ "${#MATCHES[@]}" -eq 1 ]]; then
   DEPLOYMENT_STATE_FILE="${MATCHES[0]}/deployment.env"
@@ -209,6 +220,8 @@ if [[ "${#MATCHES[@]}" -eq 1 ]]; then
   DOMAIN_NAMESPACES=("${NAMESPACE}")
   DOMAIN_RELEASE_PREFIXES=("${RELEASE_PREFIX}")
   DOMAIN_GDS_COUNTS=("${GDS_COUNT}")
+  DOMAIN_NODEGROUPS=("${NODEGROUP}")
+  DOMAIN_GDS_NODEGROUPS=("${GDS_NODEGROUP:-gdslarge}")
 elif [[ "${#MATCHES[@]}" -gt 1 ]]; then
   if [[ -n "${CLUSTER_NAME_ARG}" && -z "${DOMAIN_NAME_ARG}" ]]; then
     echo "Multiple domains found under cluster ${CLUSTER_NAME_ARG}; processing all of them:"
@@ -220,6 +233,8 @@ elif [[ "${#MATCHES[@]}" -gt 1 ]]; then
       DOMAIN_NAMESPACES+=("${NAMESPACE}")
       DOMAIN_RELEASE_PREFIXES+=("${RELEASE_PREFIX}")
       DOMAIN_GDS_COUNTS+=("${GDS_COUNT}")
+      DOMAIN_NODEGROUPS+=("${NODEGROUP}")
+      DOMAIN_GDS_NODEGROUPS+=("${GDS_NODEGROUP:-gdslarge}")
     done
   else
     echo "ERROR: multiple matching deployments found; pass --cluster-name and/or" \
@@ -240,6 +255,8 @@ else
   DOMAIN_NAMESPACES=("${NAMESPACE}")
   DOMAIN_RELEASE_PREFIXES=("${RELEASE_PREFIX}")
   DOMAIN_GDS_COUNTS=("${GDS_COUNT}")
+  DOMAIN_NODEGROUPS=("${NODEGROUP}")
+  DOMAIN_GDS_NODEGROUPS=("${GDS_NODEGROUP}")
 fi
 
 # ---------------------------------------------------------------------------
@@ -392,13 +409,16 @@ if [[ "${UNINSTALL_NEO4J}" == "true" || "${UNDEPLOY_LB}" == "true" ]]; then
       # CORE_LB/GDS_LBS hardcode namespace: "neo4j-ns" -- kubectl delete -f
       # matches namespace+name from the manifest itself, not the object's
       # actual namespace, so delete via temp copies with the real namespace
-      # substituted (same pattern startall.sh uses to apply them).
-      TMP_CORE_LB="$(mktemp "${DOMAIN_SCRATCH_DIR}/core-lb.XXXXXX")"
+      # substituted (same pattern startall.sh uses to apply them). Fixed
+      # filenames (not mktemp) so reruns overwrite these instead of piling up
+      # a new randomly-suffixed copy in DOMAIN_SCRATCH_DIR every time.
+      TMP_CORE_LB="${DOMAIN_SCRATCH_DIR}/core-lb.yaml"
       sed "s/namespace: \"neo4j-ns\"/namespace: \"${NAMESPACE}\"/" "${CORE_LB}" > "${TMP_CORE_LB}"
       kubectl delete -f "${TMP_CORE_LB}" --wait=false --ignore-not-found
-      for lb in "${GDS_LBS[@]}"; do
-        TMP_GDS_LB="$(mktemp "${DOMAIN_SCRATCH_DIR}/gds-lb.XXXXXX")"
-        sed "s/namespace: \"neo4j-ns\"/namespace: \"${NAMESPACE}\"/" "${lb}" > "${TMP_GDS_LB}"
+      for i in "${!GDS_LBS[@]}"; do
+        gds_num=$((i+1))
+        TMP_GDS_LB="${DOMAIN_SCRATCH_DIR}/gds-lb-${gds_num}.yaml"
+        sed "s/namespace: \"neo4j-ns\"/namespace: \"${NAMESPACE}\"/" "${GDS_LBS[$i]}" > "${TMP_GDS_LB}"
         kubectl delete -f "${TMP_GDS_LB}" --wait=false --ignore-not-found
       done
     else
@@ -417,27 +437,43 @@ fi
 # 3. Nodegroup + cluster + EFS (--all)
 # ---------------------------------------------------------------------------
 if [[ "${REMOVE_CLUSTER}" == "true" ]]; then
-  echo "Deleting nodegroup (${NODEGROUP})..."
-  # --disable-eviction: when ${NODEGROUP} is the cluster's only nodegroup, eksctl
-  # cordons every node before draining any of them, so kube-system deployments
-  # running 2 replicas behind a PodDisruptionBudget (coredns, ebs-csi-controller,
-  # metrics-server) can never reschedule their 2nd replica and permanently block
-  # eviction ("N pods are unevictable"). Bypassing PDBs here is safe since these
-  # pods are being destroyed along with the nodegroup regardless.
-  if ! eksctl delete nodegroup --config-file="${CLUSTER_CONFIG}" --include="${NODEGROUP}" --disable-eviction --approve; then
-    # eksctl has a known race here: it issues DeleteNodegroup, then does a
-    # follow-up status check that can hit the EKS API just after deletion has
-    # already completed, and reports the resulting 404 as a failure instead of
-    # confirmation of success. Verify against the API before treating this as
-    # a real error.
-    echo "eksctl reported an error deleting the nodegroup; verifying against the EKS API..."
-    if aws eks describe-nodegroup --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name "${NODEGROUP}" --region "${EKS_REGION}" >/dev/null 2>&1; then
-      echo "ERROR: nodegroup ${NODEGROUP} still exists; deletion genuinely failed." >&2
-      exit 1
-    else
-      echo "Nodegroup ${NODEGROUP} no longer exists -- eksctl's error was a false alarm. Continuing."
+  # Dedupe across every processed domain's core + GDS nodegroup before
+  # deleting -- a domain's core and GDS nodegroup can be the same name, and
+  # GDS_NODEGROUP defaults to "gdslarge" for every domain, so two domains
+  # being torn down together (or even one domain alone, if another
+  # still-running domain also defaults to gdslarge) can legitimately share a
+  # nodegroup. NOTE: this only sees domains actually matched by this run --
+  # tearing down one domain with --all WILL delete a nodegroup (most likely
+  # gdslarge) still in use by another domain's GDS members if that other
+  # domain isn't also being torn down in the same invocation.
+  NODEGROUPS_TO_DELETE=()
+  for ng in "${DOMAIN_NODEGROUPS[@]}" "${DOMAIN_GDS_NODEGROUPS[@]}"; do
+    [[ " ${NODEGROUPS_TO_DELETE[*]:-} " == *" ${ng} "* ]] || NODEGROUPS_TO_DELETE+=("${ng}")
+  done
+
+  for ng in "${NODEGROUPS_TO_DELETE[@]}"; do
+    echo "Deleting nodegroup (${ng})..."
+    # --disable-eviction: when ${ng} is the cluster's only nodegroup, eksctl
+    # cordons every node before draining any of them, so kube-system deployments
+    # running 2 replicas behind a PodDisruptionBudget (coredns, ebs-csi-controller,
+    # metrics-server) can never reschedule their 2nd replica and permanently block
+    # eviction ("N pods are unevictable"). Bypassing PDBs here is safe since these
+    # pods are being destroyed along with the nodegroup regardless.
+    if ! eksctl delete nodegroup --config-file="${CLUSTER_CONFIG}" --include="${ng}" --disable-eviction --approve; then
+      # eksctl has a known race here: it issues DeleteNodegroup, then does a
+      # follow-up status check that can hit the EKS API just after deletion has
+      # already completed, and reports the resulting 404 as a failure instead of
+      # confirmation of success. Verify against the API before treating this as
+      # a real error.
+      echo "eksctl reported an error deleting the nodegroup; verifying against the EKS API..."
+      if aws eks describe-nodegroup --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name "${ng}" --region "${EKS_REGION}" >/dev/null 2>&1; then
+        echo "ERROR: nodegroup ${ng} still exists; deletion genuinely failed." >&2
+        exit 1
+      else
+        echo "Nodegroup ${ng} no longer exists -- eksctl's error was a false alarm. Continuing."
+      fi
     fi
-  fi
+  done
 
   delete_stack_with_force_fallback() {
     local stack_name="$1"
@@ -502,9 +538,10 @@ if [[ "${REMOVE_CLUSTER}" == "true" ]]; then
          "its CloudFormation stacks directly (handles a cluster deleted out-of-band)."
 
     # The cluster stack exports values (e.g. ClusterSecurityGroupId) consumed by
-    # its nodegroup stacks, so any leftover nodegroup stack (not just the one
-    # ${NODEGROUP} names above -- there may be orphans from older deployments)
-    # must be deleted first or the cluster stack delete is silently refused.
+    # its nodegroup stacks, so any leftover nodegroup stack (not just the ones
+    # in NODEGROUPS_TO_DELETE above -- there may be orphans from older
+    # deployments) must be deleted first or the cluster stack delete is
+    # silently refused.
     NODEGROUP_STACKS=$(aws cloudformation list-stacks --region "${EKS_REGION}" \
       --query "StackSummaries[?starts_with(StackName, 'eksctl-${EKS_CLUSTER_NAME}-nodegroup-') && StackStatus!='DELETE_COMPLETE'].StackName" \
       --output text)

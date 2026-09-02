@@ -35,6 +35,23 @@
 #                           the release name), so temp copies with both
 #                           substituted are written to the per-deployment
 #                           scratch directory and applied from there.
+#   --nodegroup NAME        Nodegroup to schedule this domain's core members
+#                           on (default: neo4j-small; must already exist in
+#                           CLUSTER_CONFIG, e.g. neo4j-4xlarge).
+#   --gds-nodegroup NAME    Nodegroup to schedule this domain's GDS
+#                           secondaries on (default: gdslarge; must already
+#                           exist in CLUSTER_CONFIG). Kept separate from
+#                           --nodegroup because GDS workloads want roughly
+#                           2x the CPU/memory of the core members -- CORE_
+#                           VALUES/GDS_VALUES hardcode nodeSelector to
+#                           neo4j-small, overridden per install via
+#                           substituted temp values copies (see section 4
+#                           below) rather than editing those files, so
+#                           multiple domains (e.g. --domain-name customers
+#                           --nodegroup neo4j-small vs --domain-name claims
+#                           --nodegroup neo4j-4xlarge) can each land their
+#                           core members on a different nodegroup while GDS
+#                           still defaults to the shared gdslarge pool.
 #   -h, --help              Show this help and exit.
 #
 # Stops immediately on any command failure (set -e/-o pipefail), including
@@ -71,6 +88,14 @@ Options:
                           release name prefix (<domain-name>, producing
                           <domain-name>-1/2/3 core and <domain-name>-gds-1/2
                           GDS releases).
+  --nodegroup NAME        Nodegroup to schedule this domain's core members
+                          on (default: neo4j-small; must already exist in
+                          CLUSTER_CONFIG).
+  --gds-nodegroup NAME    Nodegroup to schedule this domain's GDS
+                          secondaries on (default: gdslarge; must already
+                          exist in CLUSTER_CONFIG). Separate from
+                          --nodegroup since GDS wants ~2x the CPU/memory of
+                          the core members.
   --gds-count N           Number of GDS secondary members: 0, 1, or 2
                           (default: 0 -- GDS is opt-in). 0 skips GDS
                           entirely -- no GDS installs, no GDS load
@@ -82,6 +107,8 @@ EOF
 MODE="full"
 CLUSTER_NAME_ARG=""
 DOMAIN_NAME_ARG=""
+NODEGROUP_ARG=""
+GDS_NODEGROUP_ARG=""
 GDS_COUNT_ARG=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -93,6 +120,12 @@ while [[ $# -gt 0 ]]; do
     --domain-name)
       if [[ -z "${2:-}" ]]; then echo "ERROR: --domain-name requires a value" >&2; usage; exit 1; fi
       DOMAIN_NAME_ARG="$2"; shift 2 ;;
+    --nodegroup)
+      if [[ -z "${2:-}" ]]; then echo "ERROR: --nodegroup requires a value" >&2; usage; exit 1; fi
+      NODEGROUP_ARG="$2"; shift 2 ;;
+    --gds-nodegroup)
+      if [[ -z "${2:-}" ]]; then echo "ERROR: --gds-nodegroup requires a value" >&2; usage; exit 1; fi
+      GDS_NODEGROUP_ARG="$2"; shift 2 ;;
     --gds-count)
       if [[ ! "${2:-}" =~ ^[0-2]$ ]]; then echo "ERROR: --gds-count requires a value of 0, 1, or 2" >&2; usage; exit 1; fi
       GDS_COUNT_ARG="$2"; shift 2 ;;
@@ -107,7 +140,8 @@ done
 CLUSTER_CONFIG="eks_create_cluster-jhair.yaml"           # eksctl ClusterConfig holding the nodegroup
 EKS_CLUSTER_NAME="${CLUSTER_NAME_ARG:-jhair-cluster}"    # metadata.name in CLUSTER_CONFIG (overridable via --cluster-name)
 EKS_REGION="us-east-2"                       # metadata.region in CLUSTER_CONFIG
-NODEGROUP="neo4j-small"                      # nodegroup to spin up (must exist in CLUSTER_CONFIG)
+NODEGROUP="${NODEGROUP_ARG:-neo4j-small}"    # core members' nodegroup (must exist in CLUSTER_CONFIG; overridable via --nodegroup)
+GDS_NODEGROUP="${GDS_NODEGROUP_ARG:-gdslarge}" # GDS secondaries' nodegroup -- larger than NODEGROUP (rule of thumb: ~2x CPU/memory); overridable via --gds-nodegroup
 DOMAIN_NAME="${DOMAIN_NAME_ARG:-neo4j}"      # domain identifier (overridable via --domain-name); derives NAMESPACE/RELEASE_PREFIX below
 NAMESPACE="${DOMAIN_NAME}-ns"                # lb-neo4j-core.yaml/lb1-gds.yaml/lb2-gds.yaml/PVC_EFS_MANIFEST hardcode namespace: "neo4j-ns" -- temp copies with this substituted are applied instead (see sections 3c/5)
 
@@ -130,9 +164,12 @@ NEO4J_AUTH="neo4j/Neo4j123"                  # username/password for the neo4jpw
 
 SLEEP_BETWEEN=10                             # pause between helm installs
 
-# NOTE: the nodeSelector in ${CORE_VALUES}/${GDS_VALUES}
-#       (eks.amazonaws.com/nodegroup: ...) MUST match ${NODEGROUP} above,
-#       or the pods will stay Pending (unschedulable).
+# NOTE: ${CORE_VALUES}/${GDS_VALUES} both hardcode nodeSelector to
+#       eks.amazonaws.com/nodegroup: "neo4j-small" -- section 4 below writes
+#       substituted temp copies so ${NODEGROUP} (core, default neo4j-small)
+#       and ${GDS_NODEGROUP} (GDS, default gdslarge) actually take effect;
+#       don't apply the checked-in files directly or every pod will schedule
+#       onto neo4j-small regardless of --nodegroup/--gds-nodegroup.
 
 # ---------------------------------------------------------------------------
 # cd to the genericEKS root (parent of this script's dir) so relative paths work
@@ -168,19 +205,24 @@ if [[ -n "${CLUSTER_NAME_ARG}" ]]; then
   CLUSTER_CONFIG="${TMP_CLUSTER_CONFIG}"
 fi
 
-# Pull the nodegroup's scaling config straight out of CLUSTER_CONFIG (rather
+# Pull each nodegroup's scaling config straight out of CLUSTER_CONFIG (rather
 # than hardcoding it here) so deployment.env always reflects what eksctl
-# actually read for ${NODEGROUP}, even after someone edits the checked-in
-# desiredCapacity/maxSize. Scoped to this nodegroup's own block (between its
-# "  - name: ${NODEGROUP}" line and the next "  - name:" line) since the
-# config file defines several nodegroups.
-NODEGROUP_BLOCK="$(awk -v ng="  - name: ${NODEGROUP}" '
-  $0 == ng { flag=1; next }
-  flag && /^  - name:/ { exit }
-  flag { print }
-' "${CLUSTER_CONFIG}")"
-NODEGROUP_MAX_SIZE="$(echo "${NODEGROUP_BLOCK}" | grep -m1 'maxSize:' | awk '{print $2}')"
-NODEGROUP_DESIRED_SIZE="$(echo "${NODEGROUP_BLOCK}" | grep -m1 'desiredCapacity:' | awk '{print $2}')"
+# actually read for ${NODEGROUP}/${GDS_NODEGROUP}, even after someone edits
+# the checked-in desiredCapacity/maxSize. Scoped to each nodegroup's own
+# block (between its "  - name: X" line and the next "  - name:" line) since
+# the config file defines several nodegroups.
+nodegroup_scaling() {
+  local ng="$1" field="$2"
+  awk -v ng="  - name: ${ng}" -v field="${field}" '
+    $0 == ng { flag=1; next }
+    flag && /^  - name:/ { exit }
+    flag && $0 ~ field":" { print $2; exit }
+  ' "${CLUSTER_CONFIG}"
+}
+NODEGROUP_MAX_SIZE="$(nodegroup_scaling "${NODEGROUP}" maxSize)"
+NODEGROUP_DESIRED_SIZE="$(nodegroup_scaling "${NODEGROUP}" desiredCapacity)"
+GDS_NODEGROUP_MAX_SIZE="$(nodegroup_scaling "${GDS_NODEGROUP}" maxSize)"
+GDS_NODEGROUP_DESIRED_SIZE="$(nodegroup_scaling "${GDS_NODEGROUP}" desiredCapacity)"
 
 # Record what this deployment actually used so stopall.sh can tear down the
 # right cluster/releases/GDS count later without --cluster-name/
@@ -195,6 +237,9 @@ EKS_REGION=${EKS_REGION}
 NODEGROUP=${NODEGROUP}
 NODEGROUP_MAX_SIZE=${NODEGROUP_MAX_SIZE}
 NODEGROUP_DESIRED_SIZE=${NODEGROUP_DESIRED_SIZE}
+GDS_NODEGROUP=${GDS_NODEGROUP}
+GDS_NODEGROUP_MAX_SIZE=${GDS_NODEGROUP_MAX_SIZE}
+GDS_NODEGROUP_DESIRED_SIZE=${GDS_NODEGROUP_DESIRED_SIZE}
 NAMESPACE=${NAMESPACE}
 RELEASE_PREFIX=${RELEASE_PREFIX}
 GDS_COUNT=${GDS_COUNT}
@@ -250,14 +295,24 @@ fi
 echo "kubectl context confirmed: ${CURRENT_CONTEXT}"
 
 # ---------------------------------------------------------------------------
-# 1. Nodegroup
+# 1. Nodegroup(s) -- core always, GDS's (larger) nodegroup only if GDS is
+#    actually being deployed. ensure_nodegroup is idempotent and a no-op if
+#    ${NODEGROUP}/${GDS_NODEGROUP} happen to be the same name (already
+#    created by the first call).
 # ---------------------------------------------------------------------------
-echo "Checking whether nodegroup (${NODEGROUP}) exists..."
-if aws eks describe-nodegroup --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name "${NODEGROUP}" --region "${EKS_REGION}" >/dev/null 2>&1; then
-  echo "Nodegroup ${NODEGROUP} already exists."
-else
-  echo "Creating nodegroup (${NODEGROUP}) from ${CLUSTER_CONFIG}..."
-  eksctl create nodegroup --config-file="${CLUSTER_CONFIG}" --include="${NODEGROUP}"
+ensure_nodegroup() {
+  local ng="$1"
+  echo "Checking whether nodegroup (${ng}) exists..."
+  if aws eks describe-nodegroup --cluster-name "${EKS_CLUSTER_NAME}" --nodegroup-name "${ng}" --region "${EKS_REGION}" >/dev/null 2>&1; then
+    echo "Nodegroup ${ng} already exists."
+  else
+    echo "Creating nodegroup (${ng}) from ${CLUSTER_CONFIG}..."
+    eksctl create nodegroup --config-file="${CLUSTER_CONFIG}" --include="${ng}"
+  fi
+}
+ensure_nodegroup "${NODEGROUP}"
+if [[ "${GDS_COUNT}" -gt 0 && "${GDS_NODEGROUP}" != "${NODEGROUP}" ]]; then
+  ensure_nodegroup "${GDS_NODEGROUP}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -331,20 +386,26 @@ kubectl create secret generic neo4j-bolt-cert \
   --namespace "${NAMESPACE}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-echo "Waiting for at least one Ready node labeled eks.amazonaws.com/nodegroup=${NODEGROUP}..."
-for i in $(seq 1 30); do
-  READY_NODE=$(kubectl get nodes -l "eks.amazonaws.com/nodegroup=${NODEGROUP}" \
-    -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' \
-    | awk '$2=="True"{print $1; exit}')
-  if [[ -n "${READY_NODE}" ]]; then
-    echo "Node ${READY_NODE} is Ready."
-    break
-  fi
-  sleep 5
-done
-if [[ -z "${READY_NODE}" ]]; then
-  echo "ERROR: no Ready node labeled eks.amazonaws.com/nodegroup=${NODEGROUP} after 150s." >&2
+wait_for_ready_node() {
+  local ng="$1"
+  local ready_node=""
+  echo "Waiting for at least one Ready node labeled eks.amazonaws.com/nodegroup=${ng}..."
+  for i in $(seq 1 30); do
+    ready_node=$(kubectl get nodes -l "eks.amazonaws.com/nodegroup=${ng}" \
+      -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' \
+      | awk '$2=="True"{print $1; exit}')
+    if [[ -n "${ready_node}" ]]; then
+      echo "Node ${ready_node} is Ready."
+      return 0
+    fi
+    sleep 5
+  done
+  echo "ERROR: no Ready node labeled eks.amazonaws.com/nodegroup=${ng} after 150s." >&2
   exit 1
+}
+wait_for_ready_node "${NODEGROUP}"
+if [[ "${GDS_COUNT}" -gt 0 && "${GDS_NODEGROUP}" != "${NODEGROUP}" ]]; then
+  wait_for_ready_node "${GDS_NODEGROUP}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -402,8 +463,16 @@ else
   echo "Security group ${EFS_SG_ID} already exists."
 fi
 
-echo "Ensuring EFS mount targets exist in every node subnet..."
-NODE_SUBNETS="$(kubectl get nodes -l "eks.amazonaws.com/nodegroup=${NODEGROUP}" \
+# Mount targets are needed in every subnet with a node that will actually
+# mount the shared EFS PVC -- both the core nodegroup and (when GDS is being
+# deployed) the GDS nodegroup, which may sit in different subnets/AZs.
+if [[ "${GDS_COUNT}" -gt 0 && "${GDS_NODEGROUP}" != "${NODEGROUP}" ]]; then
+  NODEGROUP_SELECTOR="eks.amazonaws.com/nodegroup in (${NODEGROUP},${GDS_NODEGROUP})"
+else
+  NODEGROUP_SELECTOR="eks.amazonaws.com/nodegroup=${NODEGROUP}"
+fi
+echo "Ensuring EFS mount targets exist in every node subnet (${NODEGROUP_SELECTOR})..."
+NODE_SUBNETS="$(kubectl get nodes -l "${NODEGROUP_SELECTOR}" \
   -o jsonpath='{range .items[*]}{.spec.providerID}{"\n"}{end}' | awk -F/ '{print $NF}' \
   | while read -r instance_id; do
       aws ec2 describe-instances --region "${EKS_REGION}" --instance-ids "${instance_id}" \
@@ -448,8 +517,10 @@ bash create_storageclass.sh "${EFS_ID}"
 
 # PVC_EFS_MANIFEST hardcodes namespace: neo4j-ns -- write a temp copy with
 # the real namespace substituted (same pattern as the CLUSTER_CONFIG temp
-# copy above) instead of applying the checked-in file directly.
-TMP_PVC_MANIFEST="$(mktemp "${SCRATCH_DIR}/efs-pvc-dynamic.XXXXXX")"
+# copy above) instead of applying the checked-in file directly. Fixed
+# filename (not mktemp) so reruns overwrite this one file instead of piling
+# up a new randomly-suffixed copy in SCRATCH_DIR every time.
+TMP_PVC_MANIFEST="${SCRATCH_DIR}/efs-pvc-dynamic.yaml"
 sed "s/namespace: neo4j-ns/namespace: ${NAMESPACE}/" "${PVC_EFS_MANIFEST}" > "${TMP_PVC_MANIFEST}"
 echo "Ensuring shared EFS PVC (pvc-efs-dynamic) in namespace ${NAMESPACE}..."
 kubectl apply -f "${TMP_PVC_MANIFEST}"
@@ -467,16 +538,28 @@ fi
 # ---------------------------------------------------------------------------
 # 4. Neo4j members
 # ---------------------------------------------------------------------------
-echo "Installing ${CORE_COUNT} core member(s) (chart version ${CHART_VERSION})..."
+# CORE_VALUES/GDS_VALUES hardcode nodeSelector to neo4j-small -- write temp
+# copies with ${NODEGROUP}/${GDS_NODEGROUP} substituted (same substitute-
+# then-apply pattern as the LB/PVC manifests) instead of applying the
+# checked-in files directly. Fixed filenames (not mktemp) so reruns overwrite
+# these instead of piling up a new randomly-suffixed copy in SCRATCH_DIR
+# every time.
+NODESELECTOR_PATTERN='eks\.amazonaws\.com/nodegroup: "neo4j-small"'
+
+echo "Installing ${CORE_COUNT} core member(s) (chart version ${CHART_VERSION}, nodegroup ${NODEGROUP})..."
 for i in $(seq 1 "${CORE_COUNT}"); do
-  helm upgrade -i "${RELEASE_PREFIX}-${i}" neo4j/neo4j --version "${CHART_VERSION}" --namespace "${NAMESPACE}" -f "${CORE_VALUES}"
+  CORE_VALUES_TMP="${SCRATCH_DIR}/core-values-${i}.yaml"
+  sed "s#${NODESELECTOR_PATTERN}#eks.amazonaws.com/nodegroup: \"${NODEGROUP}\"#" "${CORE_VALUES}" > "${CORE_VALUES_TMP}"
+  helm upgrade -i "${RELEASE_PREFIX}-${i}" neo4j/neo4j --version "${CHART_VERSION}" --namespace "${NAMESPACE}" -f "${CORE_VALUES_TMP}"
   sleep "${SLEEP_BETWEEN}"
 done
 
 if [[ "${GDS_COUNT}" -gt 0 ]]; then
-  echo "Installing ${GDS_COUNT} GDS member(s) (chart version ${CHART_VERSION})..."
+  echo "Installing ${GDS_COUNT} GDS member(s) (chart version ${CHART_VERSION}, nodegroup ${GDS_NODEGROUP})..."
   for i in $(seq 1 "${GDS_COUNT}"); do
-    helm upgrade -i "${RELEASE_PREFIX}-gds-${i}" neo4j/neo4j --version "${CHART_VERSION}" --namespace "${NAMESPACE}" -f "${GDS_VALUES}"
+    GDS_VALUES_TMP="${SCRATCH_DIR}/gds-values-${i}.yaml"
+    sed "s#${NODESELECTOR_PATTERN}#eks.amazonaws.com/nodegroup: \"${GDS_NODEGROUP}\"#" "${GDS_VALUES}" > "${GDS_VALUES_TMP}"
+    helm upgrade -i "${RELEASE_PREFIX}-gds-${i}" neo4j/neo4j --version "${CHART_VERSION}" --namespace "${NAMESPACE}" -f "${GDS_VALUES_TMP}"
     sleep "${SLEEP_BETWEEN}"
   done
 else
@@ -490,8 +573,9 @@ echo "Creating load balancers..."
 # CORE_LB and every GDS LB manifest hardcode namespace: "neo4j-ns" -- write a
 # temp copy with the real namespace substituted (same pattern as the
 # CLUSTER_CONFIG temp copy above) instead of applying the checked-in file
-# directly.
-TMP_CORE_LB="$(mktemp "${SCRATCH_DIR}/core-lb.XXXXXX")"
+# directly. Fixed filenames (not mktemp) so reruns overwrite these instead of
+# piling up a new randomly-suffixed copy in SCRATCH_DIR every time.
+TMP_CORE_LB="${SCRATCH_DIR}/core-lb.yaml"
 sed "s/namespace: \"neo4j-ns\"/namespace: \"${NAMESPACE}\"/" "${CORE_LB}" > "${TMP_CORE_LB}"
 kubectl apply -f "${TMP_CORE_LB}"
 for i in "${!GDS_LBS[@]}"; do
@@ -500,7 +584,7 @@ for i in "${!GDS_LBS[@]}"; do
   # (helm.neo4j.com/instance) -- substitute it if --domain-name changed
   # that from the checked-in default "neo4j" (leaves the LB's own object
   # name, e.g. "neo4j-gds-1-lb", untouched -- that's a separate identity).
-  TMP_GDS_LB="$(mktemp "${SCRATCH_DIR}/gds-lb-${gds_num}.XXXXXX")"
+  TMP_GDS_LB="${SCRATCH_DIR}/gds-lb-${gds_num}.yaml"
   sed -e "s/namespace: \"neo4j-ns\"/namespace: \"${NAMESPACE}\"/" \
       -e "/helm\.neo4j\.com\/instance:/s/neo4j-gds-${gds_num}/${RELEASE_PREFIX}-gds-${gds_num}/" \
     "${GDS_LBS[$i]}" > "${TMP_GDS_LB}"
