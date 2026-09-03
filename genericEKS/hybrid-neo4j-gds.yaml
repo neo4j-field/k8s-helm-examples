@@ -32,8 +32,8 @@ neo4j:
   # they hang forever trying to join a cluster they can't discover.
   name: "neo4j-hybrid-cluster"
   resources:
-    cpu: "7"
-    memory: "28G"
+    cpu: "60"
+    memory: "470G"
   # Uncomment to set the initial password
   #password: ""
   passwordFromSecret: "neo4jpwd"
@@ -66,9 +66,9 @@ config:
   server.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
   dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
   server.directories.plugins: "/var/lib/neo4j/plugins"
-  server.memory.heap.initial_size: "12G"
-  server.memory.heap.max_size: "12G"
-  server.memory.pagecache.size: "8G"
+  server.memory.heap.initial_size: "210G"
+  server.memory.heap.max_size: "210G"
+  server.memory.pagecache.size: "160G"
   server.directories.transaction.logs.root: /transactions
   initial.server.mode_constraint: "SECONDARY"
   server.cluster.system_database_mode: "SECONDARY"

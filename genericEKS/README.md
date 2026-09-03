@@ -255,6 +255,55 @@ mount targets exist in every subnet that has nodes for every nodegroup
 actually in use — a nodegroup in a subnet with no mount target will leave
 those pods stuck at `ContainerCreating` on mount.
 
+## Sizing pod resources and memory to the nodegroup
+
+A nodegroup's instance type (`eks_create_cluster-jhair.yaml`) and a values
+file's `neo4j.resources`/heap/pagecache settings are independent knobs —
+changing the instance type does **not** automatically rescale the pod's
+resource requests or JVM memory. If they drift out of sync (e.g. a nodegroup
+is resized to a bigger instance but the values file still reflects the old,
+smaller sizing), the Neo4j pod under-utilizes the node it's paying for.
+
+Per the one-instance-per-instance-type convention used throughout this repo
+(sizing a Neo4j pod to take up the *majority* of its node's resources, so two
+Neo4j instances never contend for CPU, memory, or disk I/O on the same node),
+whenever a nodegroup's instance type changes, revisit three settings
+together in that release's values file, rather than just the nodegroup
+config:
+
+- **Pod resources** (`neo4j.resources.cpu`/`memory`): size to most, but not
+  all, of the node's vCPU/RAM — leave headroom for the node's own system
+  pods (kubelet, kube-proxy, `aws-node`, the EFS CSI node driver DaemonSet)
+  rather than requesting 100% of the node's capacity.
+- **JVM heap** (`server.memory.heap.initial_size`/`max_size`): keep initial
+  equal to max to avoid heap-resize pauses, and size it to the workload —
+  algorithm-heavy or in-memory-graph workloads (e.g. GDS) are far more
+  heap-hungry than typical OLTP Neo4j, since their working structures live
+  on the JVM heap; under-sizing heap is the most common cause of
+  `OutOfMemoryError`/GC thrashing under that kind of load.
+- **Page cache** (`server.memory.pagecache.size`): sized to hold the hot
+  store files for fast reads from disk, without starving heap.
+
+For example, `gdslarge` on `r6i.16xlarge` (64 vCPU / 512 GiB RAM) works out
+to: `cpu: "60"` and `memory: "470G"` for pod resources (leaving ~4 vCPU and
+~40-50Gi for the node's system pods), a `210G`/`210G` heap, and a `160G`
+pagecache. That leaves roughly 370G (heap + pagecache) out of the pod's 470G
+memory request, with ~100G of slack inside the pod for non-heap JVM overhead
+(thread stacks, GC metadata, direct/native buffers) and outside the pod for
+the node's system pods — intentionally not pushed to 100% utilization, since
+the one-instance-per-node-type guidance is about avoiding contention between
+*Neo4j* instances, not about starving the node's own required system pods
+(which can otherwise trigger node-pressure evictions or throttled
+networking/storage under bursty, all-cores-busy workloads like GDS algorithm
+execution).
+
+These are starting values, not a substitute for measurement: for a precise
+heap/pagecache split for whatever pod memory limit you land on, run
+`neo4j-admin server memory-recommendation` against that container memory
+limit — actual heap needs also depend on workload specifics (e.g. for GDS,
+the size of your largest projected graph: node/relationship counts ×
+properties in the projection).
+
 ## Custom images (optional)
 
 By default, the values files use the official multi-arch Neo4j Enterprise
