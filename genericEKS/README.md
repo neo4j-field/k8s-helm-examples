@@ -191,6 +191,70 @@ larger than either core nodegroup. That shared nodegroup and the single AWS
 EFS filesystem underneath both `pvc-efs-dynamic` objects are the two things
 still tying `customers-ns` and `claims-ns` together.
 
+## Using multiple nodegroups across namespaces
+
+`startall.sh`/`stopall.sh` automate all of this (`--nodegroup`,
+`--gds-nodegroup`, `--domain-name`), but it's worth knowing the underlying
+mechanics if you're doing it by hand or debugging a `Pending` pod:
+
+**1. Define and create each nodegroup** in the EKS `ClusterConfig` (each
+needs a distinct `name` under `managedNodeGroups`), then create the ones
+that don't exist yet:
+
+```bash
+eksctl create nodegroup --config-file=eks_create_cluster-jhair.yaml --include=<nodegroup-name>
+```
+
+Repeat per nodegroup (e.g. one sized for core members, a larger one for
+GDS). Check first with `aws eks describe-nodegroup --cluster-name <cluster>
+--nodegroup-name <name>` to avoid re-creating an existing one.
+
+**2. Wait for a Ready node** in each new nodegroup before scheduling
+anything onto it:
+
+```bash
+kubectl get nodes -l eks.amazonaws.com/nodegroup=<nodegroup-name>
+```
+
+A Helm install will otherwise leave pods `Pending` with no obvious error.
+
+**3. Create a namespace per domain**:
+
+```bash
+kubectl create namespace <domain>-ns
+```
+
+**4. Pin each release's pods to a specific nodegroup** via `nodeSelector` in
+that release's Helm values (or override at install time):
+
+```bash
+helm upgrade -i <release> neo4j/neo4j --version <chart-version> \
+  --namespace <domain>-ns \
+  -f <values-file> \
+  --set-string nodeSelector.eks\.amazonaws\.com/nodegroup=<nodegroup-name>
+```
+
+The nodegroup name here is what determines placement — the namespace is
+just the logical/tenant boundary and has no bearing on which nodegroup a
+pod lands on.
+
+**5. Repeat step 4 per member type** if core and GDS need different
+capacity: install the core releases with one nodegroup's name, the GDS
+release(s) with a different (typically larger) nodegroup's name, all still
+inside the same namespace from step 3.
+
+**6. Repeat steps 3-5 per domain.** Namespaces are independent, but
+nodegroups aren't implicitly scoped to a namespace — if two domains' Helm
+installs both set `nodeSelector` to the same nodegroup name, their pods
+will co-schedule onto the same nodes and compete for that nodegroup's
+capacity. Use distinct nodegroup names per domain if that's not wanted, or
+size a shared nodegroup for the combined load if it is.
+
+**7. If pods mount a shared filesystem-backed PVC (e.g. EFS)**, make sure
+mount targets exist in every subnet that has nodes for every nodegroup
+actually in use — a nodegroup in a subnet with no mount target will leave
+those pods stuck at `ContainerCreating` on mount.
+
 ## Custom images (optional)
 
 By default, the values files use the official multi-arch Neo4j Enterprise
