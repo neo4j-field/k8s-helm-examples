@@ -174,19 +174,28 @@ installed via plugin), see [`docker/README.md`](docker/README.md).
 
 ## Other files
 
-A diagram of a two-domain deployment (`customers-ns` + `claims-ns`) —
-namespaces, load balancer routing (including why the GDS LB reaches only its
-one GDS pod), and the shared nodegroup/EFS dependencies between domains:
+`customers-ns` and `claims-ns` are separately deployed via `startall.sh
+--domain-name`, each with its own core cluster, GDS secondary, and pair of
+load balancers, on independent core nodegroups (`neo4j-small`,
+`neo4j-4xlarge`). After the rebuild, both domains' GDS secondaries now land
+on a shared `gdslarge` nodegroup instead of riding along with their own core
+members — sized up per the rule of thumb that GDS wants roughly 2x a core
+member's CPU/memory. That nodegroup and the single AWS EFS filesystem are
+the two things still tying the domains together underneath.
 
 ![Architecture diagram of the customers-ns/claims-ns two-domain EKS deployment](architecture-diagram.svg)
 
-[`architecture-diagram.svg`](architecture-diagram.svg) renders inline on
-GitHub (as above) with a fixed light-mode palette.
-[`architecture-diagram.html`](architecture-diagram.html) is the
-theme-aware, open-in-a-browser source version it was generated from — open
-it directly, it needs nothing installed. If the diagram changes, regenerate
-the SVG from the HTML rather than hand-editing either one out of sync with
-the other.
+**What this shows:** two independently load-balanced, independently released
+Neo4j domains on independent core compute — `customers-ns` on `neo4j-small`,
+`claims-ns` on its own dedicated `neo4j-4xlarge`. The two load balancers per
+domain aren't equivalent: `neo4j-core-lb` can route bolt traffic to any of
+the three PRIMARY members, while `neo4j-gds-1-lb`'s non-routing bolt
+listener reaches only that domain's GDS secondary — traced above as the
+elbowed path that steps around the core pods entirely, and continues on
+into `gdslarge`, a nodegroup shared by both domains' GDS pods and sized
+larger than either core nodegroup. That shared nodegroup and the single AWS
+EFS filesystem underneath both `pvc-efs-dynamic` objects are the two things
+still tying `customers-ns` and `claims-ns` together.
 
 `misc-examples/` holds root-level files kept for reference that aren't
 read by `startall.sh`/`stopall.sh` at all: standalone helper scripts whose
