@@ -142,7 +142,7 @@ to them by running this against the core LB (or a core pod):
 ALTER DATABASE neo4j SET TOPOLOGY 3 PRIMARY 2 SECONDARY
 ```
 
-### Login
+### Neo4j Credentials
 
 Username/password come from the `neo4jpwd` secret, set by the `NEO4J_AUTH`
 variable in `scripts/startall.sh`.
@@ -166,13 +166,7 @@ variable in `scripts/startall.sh`.
 ./scripts/stopall.sh --all
 ```
 
-## Custom images (optional)
-
-By default, the values files use the official multi-arch Neo4j Enterprise
-image. If you need a custom image (e.g. with GDS baked in instead of
-installed via plugin), see [`docker/README.md`](docker/README.md).
-
-## Other files
+## Example Deployment
 
 `customers-ns` and `claims-ns` are separately deployed via `startall.sh
 --domain-name`, each with its own core cluster, GDS secondary, and pair of
@@ -197,11 +191,38 @@ larger than either core nodegroup. That shared nodegroup and the single AWS
 EFS filesystem underneath both `pvc-efs-dynamic` objects are the two things
 still tying `customers-ns` and `claims-ns` together.
 
-`misc-examples/` holds root-level files kept for reference that aren't
-read by `startall.sh`/`stopall.sh` at all: standalone helper scripts whose
-logic those scripts now do inline, an alternate/legacy cluster config, a
-single-member standalone deploy example, and a couple of older sample
-files.
+## Custom images (optional)
+
+By default, the values files use the official multi-arch Neo4j Enterprise
+image. If you need a custom image (e.g. with GDS baked in instead of
+installed via plugin), see [`docker/README.md`](docker/README.md).
+
+## Other files
+
+None of the directories below are read by `startall.sh`/`stopall.sh` — they're
+reference material.
+
+- **`clientSamples/`** — real customer-derived variants (Cilium blue/green,
+  multi-region/multi-small LBs, an alternate cluster config) kept as
+  snapshots of what an actual engagement used, not canonical examples to
+  copy from directly. `clientSamples/externalDNS/` is the alternative to
+  this repo's "keep LBs alive across reinstalls" approach: automating
+  DNS/ACM cert issuance instead of static, manually-provisioned load
+  balancers.
+- **`docker/`** — Dockerfiles for building a **custom** Neo4j image
+  (`axb-debug/` for core members, `axbg-debug/` adds the GDS plugin for
+  secondaries), for when the official multi-arch image (the default) isn't
+  enough — see [`docker/README.md`](docker/README.md) and "Custom images"
+  above.
+- **`misc-examples/`** — root-level files kept for reference: standalone
+  helper scripts whose logic `startall.sh`/`stopall.sh` now do inline
+  (`create-licenses-configmap.sh`, `createPasswordSecret.sh`), an
+  alternate/legacy cluster config (`eks_create_cluster2.yaml`), a
+  single-member standalone deploy example (`standalone.yaml`,
+  `standalone-lb.yaml`), and a couple of older LB/DNS sample files.
+- **`monitoring_notes/`** — Prometheus/Grafana values (`prometheus.yaml`,
+  `grafana.yaml`, `grafana-values.yaml`) for scraping the Neo4j metrics this
+  repo's cluster values already enable (`server.metrics.*`).
 
 ## Before running `scripts/startall.sh`
 
