@@ -87,6 +87,13 @@ config:
   dbms.routing.load_balancing.plugin: server_policies
   dbms.routing.load_balancing.config.server_policies.gds: tags(gds); halt();
 
+  # Optional GDS cluster write-back batch sizing -- controls how server-side
+  # routing chunks node/relationship property writes forwarded from this
+  # Secondary to the cluster writer during gds.*.write() calls. Defaults
+  # shown below; uncomment to override.
+  # gds.cluster.tx.min.size: "10000"
+  # gds.cluster.tx.max.size: "100000"
+
   # Kubernetes-based cluster discovery settings, all defaults for a standard
   # in-cluster deployment -- only need overriding for a non-standard setup
   # (e.g. a custom cluster domain).

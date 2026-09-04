@@ -154,6 +154,55 @@ RETURN nodeId, propertyValue ORDER BY propertyValue DESC LIMIT 5;
 All four run under `--access-mode read` / Browser's Read Only toggle, connected
 to the GDS LB host, with `kgraphsec` as the session database.
 
+## Update: `.write()` works directly against the GDS secondary once GDS Enterprise is licensed
+
+Everything below was verified live against `customer360` (not the `kgraphsec`
+composite alias — that path is a separate concern, not covered here) after
+installing a valid `gds.enterprise.license_file` on `customers-gds-1` (see
+`hybrid-neo4j-gds.yaml`'s `gds.enterprise.license_file: "/licenses/local/gds.license"`,
+fed by the `license-config` configmap).
+
+Per the GDS docs
+([Introduction — Editions](https://neo4j.com/docs/graph-data-science/current/introduction/#introduction-editions),
+[Production Deployment — Neo4j Cluster](https://neo4j.com/docs/graph-data-science/current/production-deployment/neo4j-cluster/)),
+GDS Enterprise Edition supports running `write` procedures as part of a
+cluster deployment: calls to GDS `write` procedures are internally forwarded
+via **server-side routing** (`dbms.routing.enabled: "true"`, already set
+cluster-wide in `neo4j-core.yaml`/`hybrid-neo4j-gds.yaml`) from the Secondary
+running GDS to the actual cluster writer — no manual two-hop bridge required,
+as long as a valid license is installed on that Secondary.
+
+Confirmed directly against `customers-gds-1` (`bolt+ssc://<gds-lb-host>:7687`,
+`-d customer360`, **default/write access mode** — not `--access-mode read`):
+
+```cypher
+CALL gds.pageRank.write('customer360Graph', {writeProperty: 'pageRankScoreLicensed'})
+YIELD nodePropertiesWritten, writeMillis, ranIterations, didConverge
+RETURN nodePropertiesWritten, writeMillis, ranIterations, didConverge;
+```
+```
+nodePropertiesWritten: 5186274, writeMillis: 8494, ranIterations: 3, didConverge: true
+```
+
+Verified the write actually landed in the real store by querying a core
+Primary (`customers-1`) directly — `pageRankScoreLicensed` values were present
+on nodes there, confirming server-side routing carried the write off the
+Secondary and committed it on a core writer.
+
+Before this license was installed, the same call failed with:
+```
+IllegalStateException: Writing results to the cluster is only available with a
+Licensed Neo4j Graph Data Science library deployed on a Secondary instance.
+```
+That error is now resolved.
+
+This means, for direct (non-alias) use against `customer360`, the
+"Persisting mutated GDS results without `gds.*.write()`" workaround below is
+no longer necessary — a licensed `.write()` call in a write-mode session does
+the job in one step. That section remains relevant for cases still
+structurally blocked from reaching `.write()` at all (e.g. through the
+composite alias, which forces read-mode routing — not addressed here).
+
 ## Persisting mutated GDS results without `gds.*.write()`
 
 Since `.write` procedures are unreachable here (previous section) — blocked by
