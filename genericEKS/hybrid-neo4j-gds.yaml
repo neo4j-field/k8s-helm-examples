@@ -86,13 +86,21 @@ config:
   dbms.routing.load_balancing.plugin: server_policies
   dbms.routing.load_balancing.config.server_policies.gds: tags(gds); halt();
 
+  # Kubernetes-based cluster discovery settings, all defaults for a standard
+  # in-cluster deployment -- only need overriding for a non-standard setup
+  # (e.g. a custom cluster domain).
+  # dbms.kubernetes.address: "kubernetes.default.svc:443"                                  # Address for Kubernetes API
+  # dbms.kubernetes.ca_crt: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"          # File location of CA certificate for Kubernetes API
+  # dbms.kubernetes.cluster_domain: "cluster.local"                                         # Kubernetes cluster domain -- set this if a custom domain is in use
+  # dbms.kubernetes.discovery.service_port_name: "transaction"                              # Service port name for discovery for Kubernetes API
+  # dbms.kubernetes.label_selector: ""                                                      # LabelSelector for Kubernetes API -- no product default, the chart derives this automatically
+  # dbms.kubernetes.namespace: "/var/run/secrets/kubernetes.io/serviceaccount/namespace"     # File location of namespace for Kubernetes API
+  # dbms.kubernetes.token: "/var/run/secrets/kubernetes.io/serviceaccount/token"             # File location of token for Kubernetes API
+
 apoc_config:
   apoc.export.file.enabled: "true"
   apoc.import.file.enabled: "true"
   apoc.trigger.enabled: "true"
-
-# Only if a custom domain is in use
-#  causal_clustering.kubernetes.cluster_domain: "neo4j.cluster.local"
 
 
 additionalVolumeMounts:
