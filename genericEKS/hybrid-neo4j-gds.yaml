@@ -62,6 +62,7 @@ config:
   db.logs.query.enabled: "OFF"
   server.directories.licenses: "/licenses/local"
   dbms.bloom.license_file: "/licenses/local/bloom.license"
+  gds.enterprise.license_file: "/licenses/local/gds.license"
   dbms.security.procedures.unrestricted: "apoc.*,bloom.*,gds.*"
   server.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
   dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
