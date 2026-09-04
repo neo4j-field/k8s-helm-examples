@@ -14,5 +14,5 @@ tmp/
 # License files (e.g. GDS/Bloom) fed into the license-config configmap by
 # scripts/startall.sh's `kubectl create configmap license-config
 # --from-file=licenses/` step -- never tracked, drop your .license file(s)
-# in here locally.
-licenses/
+# in here locally. The licenses/ directory itself stays tracked.
+licenses/*.license
