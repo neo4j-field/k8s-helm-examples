@@ -60,6 +60,7 @@ config:
   db.logs.query.threshold: "0s" # log ALL queries, not just slow ones
   db.logs.query.parameter_logging_enabled: "true"
   db.logs.query.time_logging_enabled: "true"
+  db.logs.query.obfuscate_literals: "true" # obfuscates all literals in a query before logging
 
   server.directories.licenses: "/licenses/local"
   dbms.bloom.license_file: "/licenses/local/bloom.license"
