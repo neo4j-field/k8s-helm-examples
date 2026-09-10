@@ -59,7 +59,10 @@ podSpec:
 config:
   server.backup.enabled: "true"
   server.config.strict_validation.enabled: "false"
-  db.logs.query.enabled: "OFF"
+  db.logs.query.enabled: "INFO"
+  db.logs.query.threshold: "0s"
+  db.logs.query.parameter_logging_enabled: "true"
+  db.logs.query.time_logging_enabled: "true"
   server.directories.licenses: "/licenses/local"
   dbms.bloom.license_file: "/licenses/local/bloom.license"
   gds.enterprise.license_file: "/licenses/local/gds.license"
