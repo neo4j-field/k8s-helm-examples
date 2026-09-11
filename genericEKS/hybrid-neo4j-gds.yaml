@@ -59,10 +59,12 @@ podSpec:
 config:
   server.backup.enabled: "true"
   server.config.strict_validation.enabled: "false"
-  db.logs.query.enabled: "INFO"
-  db.logs.query.threshold: "0s"
-  db.logs.query.parameter_logging_enabled: "true"
+
+  db.logs.query.enabled: "INFO" # or "VERBOSE" for more detail
+  db.logs.query.threshold: "0s" # log ALL queries, not just slow ones
   db.logs.query.time_logging_enabled: "true"
+  db.logs.query.obfuscate_literals: "true" # obfuscates all literals in a query before logging
+
   server.directories.licenses: "/licenses/local"
   dbms.bloom.license_file: "/licenses/local/bloom.license"
   gds.enterprise.license_file: "/licenses/local/gds.license"
