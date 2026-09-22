@@ -18,7 +18,7 @@ metadata:
     #service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
 
   labels:
-    #app: hybridgds
+    app: neo4j-hybrid-cluster
     helm.neo4j.com/instance: neo4j-gds-2
   name: neo4j-gds-2-lb
   namespace: "neo4j-ns"
@@ -35,7 +35,7 @@ spec:
     protocol: TCP
     targetPort: 7474
   selector:
+    app: neo4j-hybrid-cluster
     helm.neo4j.com/instance: neo4j-gds-2
-    #app: hybridgds
   sessionAffinity: None
   type: LoadBalancer

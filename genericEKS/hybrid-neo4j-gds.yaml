@@ -43,6 +43,9 @@ neo4j:
   acceptLicenseAgreement: "yes"
   minimumClusterSize: "3"
 
+  labels:
+    eks.amazonaws.com/nodetype: "secondary"
+
 nodeSelector:
   eks.amazonaws.com/nodegroup: "neo4j-small"
 

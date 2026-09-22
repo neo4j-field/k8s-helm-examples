@@ -45,11 +45,8 @@ spec:
     protocol: TCP
     targetPort: 7474
   selector:
-    eks.amazonaws.com/nodetype: "primary"
-    # Must match neo4j-core.yaml's neo4j.name (the chart's "app" pod
-    # label) -- this was "playsmall" before, which never matched any actual
-    # core pod (they carry app=neo4j-hybrid-cluster), so this Service had zero
-    # endpoints and the NLB had no healthy targets at all.
+    # Must match neo4j-core.yaml's neo4j.name (the chart's "app" pod label)
     app: neo4j-hybrid-cluster
+    eks.amazonaws.com/nodetype: "primary"
   sessionAffinity: None
   type: LoadBalancer
