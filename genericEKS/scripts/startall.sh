@@ -390,6 +390,7 @@ wait_for_ready_node() {
   local ng="$1"
   local ready_node=""
   echo "Waiting for at least one Ready node labeled eks.amazonaws.com/nodegroup=${ng}..."
+  echo "  (check status any time with: kubectl get nodes -l eks.amazonaws.com/nodegroup=${ng})"
   for i in $(seq 1 30); do
     ready_node=$(kubectl get nodes -l "eks.amazonaws.com/nodegroup=${ng}" \
       -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' \
@@ -398,9 +399,11 @@ wait_for_ready_node() {
       echo "Node ${ready_node} is Ready."
       return 0
     fi
+    echo "  still waiting (${i}/30, $((i * 5))s elapsed)..."
     sleep 5
   done
   echo "ERROR: no Ready node labeled eks.amazonaws.com/nodegroup=${ng} after 150s." >&2
+  echo "Check status with: kubectl get nodes -l eks.amazonaws.com/nodegroup=${ng}" >&2
   exit 1
 }
 wait_for_ready_node "${NODEGROUP}"
