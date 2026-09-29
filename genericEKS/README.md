@@ -37,20 +37,49 @@ side by side on the same cluster, each fully isolated in its own namespace.
 
 ## Load balancer → Neo4j port mapping
 
-Each NLB exposes two ports. TLS termination is currently **disabled** (no
-ACM cert provisioned in this account/region — see `CLAUDE.md`), so the
-`http` listener is plain, unencrypted port 80 rather than 443:
+Each NLB exposes two ports and stays a pure TCP passthrough on both — no ACM
+cert or LB-level TLS termination is used (there's no ACM cert provisioned in
+this account/region — see `CLAUDE.md`). TLS is instead terminated **at
+Neo4j itself**, on its HTTPS port:
 
 | LB listener port | Protocol | Forwards to (pod `targetPort`) | Purpose |
 |---|---|---|---|
 | `7687` | TCP | `7687` (Bolt) | Driver/Browser Bolt connections |
-| `80` | TCP | `7474` (HTTP) | Neo4j Browser web UI |
+| `443` | TCP | `7473` (HTTPS) | Neo4j Browser web UI |
 
-To re-enable TLS termination: get a real ACM cert ARN in the same AWS
-account/region as the cluster, change the `http` listener's `port: 80` back
-to `443` in `lb-neo4j-core.yaml`/`lb1-gds.yaml`/`lb2-gds.yaml`, and uncomment
-the `service.beta.kubernetes.io/aws-load-balancer-ssl-cert`/
-`ssl-negotiation-policy` annotations in each file.
+### Self-signed certs (required for SSO)
+
+Every values file's `ssl:` block sets both `ssl.bolt` and `ssl.https` to the
+same self-signed cert/key pair, stored in the `neo4j-bolt-cert` k8s Secret
+(`startall.sh` generates it once per deployment with `openssl req -x509
+... -addext "subjectAltName=DNS:<core-lb-hostname>,DNS:<gds-lb-hostname>"`).
+Reusing one cert for both listeners is deliberate — Bolt doesn't do
+HTTP-level SNI validation, so it doesn't care, and it avoids maintaining two
+cert/secret pairs per deployment.
+
+**The SAN matters, not just having a cert.** Neo4j's Jetty HTTPS listener
+enforces SNI host checking: the hostname a client connects with must appear
+in the cert's SAN, or every request gets rejected outright with `HTTP 400
+Invalid SNI` before Neo4j Browser (or an OIDC redirect) is ever reached. Since
+each namespace's core LB and GDS LB get **different** AWS-assigned
+hostnames but share one cert, that cert needs **both** hostnames as SANs —
+see the two `DNS:` entries above. If a LB is ever deleted and recreated
+(e.g. via `stopall.sh --undeploy-lb`), AWS assigns it a new hostname and the
+cert must be regenerated with the new SAN(s), then the affected StatefulSets
+rolling-restarted to pick it up.
+
+**Why HTTPS is required at all, not just nice-to-have:** if you're using
+OIDC/SSO (`dbms.security.oidc.*`, see `CLAUDE.md`), the identity provider's
+redirect URI must use the `https` scheme — Okta (and most IdPs) reject a
+plain-`http` redirect_uri outright. A self-signed cert is sufficient to
+satisfy that scheme check; it does **not** need to be CA-trusted, since the
+IdP never connects to it directly — only the user's browser does, which
+will show a one-time click-through cert warning instead of a hard error.
+
+To go from self-signed to a real, browser-trusted cert instead (e.g. via
+Let's Encrypt): you'd need a real DNS name pointed at the LB's hostname to
+complete a certificate challenge — this repo intentionally has no DNS (see
+`CLAUDE.md`), so that's a bigger prerequisite change, not a drop-in swap.
 
 ## Deploying
 

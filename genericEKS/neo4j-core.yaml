@@ -24,6 +24,20 @@ ssl:
       secretName: neo4j-bolt-cert
     publicCertificate:
       secretName: neo4j-bolt-cert
+  # HTTPS on the same self-signed cert/key as Bolt above (neo4j-bolt-cert
+  # already exists per-server -- reused here rather than minting a second
+  # cert). The chart auto-derives server.https.enabled/dbms.ssl.policy.https.*
+  # from this block, same as it does for ssl.bolt -- do NOT also set those
+  # under `config:` or the rendered ConfigMap will end up with duplicate
+  # keys. This makes the browser-facing LB path (lb-neo4j-core.yaml, port
+  # 443 -> 7473) actually HTTPS end to end, which Okta's OIDC redirect_uri
+  # requires (it rejects a plain-http scheme); users will see a
+  # click-through cert warning since it's self-signed, not CA-trusted.
+  https:
+    privateKey:
+      secretName: neo4j-bolt-cert
+    publicCertificate:
+      secretName: neo4j-bolt-cert
 
 neo4j:
   name: "neo4j-hybrid-cluster"
@@ -89,6 +103,45 @@ config:
   dbms.security.keystore.path: /keystore/neo4j.keystore
   dbms.security.keystore.password: changeit
   dbms.security.key.name: neo4j-key
+
+  # Okta SSO (OIDC) + native auth side by side. Keeping "native" in both
+  # providers lists preserves a break-glass path via the native neo4j admin
+  # user if Okta is ever unreachable/misconfigured: authorization.providers
+  # also includes "native" so a natively-authenticated user's roles still
+  # resolve via native GRANT ROLE, while an Okta-authenticated user's roles
+  # resolve via the group_to_role_mapping below. Order matters for
+  # authentication -- Neo4j tries providers left-to-right, so "oidc-okta1"
+  # is listed first, "oidc-okta2" second, "native" last as break-glass.
+  # https://neo4j.com/docs/operations-manual/current/authentication-authorization/configuration-oidc/
+  dbms.security.authentication_providers: "oidc-okta1,oidc-okta2,native"
+  dbms.security.authorization_providers: "oidc-okta1,oidc-okta2,native"
+  # Logs successful logins (not just failures, which are always logged) to
+  # logs/security.log -- includes username, source provider, and role
+  # granted, useful for confirming which oidc-okta1/oidc-okta2/native path
+  # a given login actually resolved through.
+  dbms.security.log_successful_authentication: "true"
+  dbms.security.allow_oidc_credential_forwarding_enabled: "true"
+
+  # okta1 == the original integrator-3923174 org.
+  dbms.security.oidc.okta1.display_name: "Okta1"
+  dbms.security.oidc.okta1.auth_flow: "pkce"
+  dbms.security.oidc.okta1.well_known_discovery_uri: "https://integrator-3923174.okta.com/oauth2/default/.well-known/oauth-authorization-server"
+  dbms.security.oidc.okta1.audience: "api://default"
+  dbms.security.oidc.okta1.claims.username: "sub"
+  dbms.security.oidc.okta1.claims.groups: "groups"
+  dbms.security.oidc.okta1.params: "client_id=0oa1802xy03ToNXkE698;response_type=code;scope=openid profile email"
+  dbms.security.oidc.okta1.authorization.group_to_role_mapping: "\"dbadmin\"=admin"
+
+  # okta2 == the integrator-1256732 dev org.
+  dbms.security.oidc.okta2.display_name: "Okta2"
+  dbms.security.oidc.okta2.auth_flow: "pkce"
+  dbms.security.oidc.okta2.well_known_discovery_uri: "https://integrator-1256732.okta.com/oauth2/default/.well-known/oauth-authorization-server"
+  dbms.security.oidc.okta2.audience: "api://default"
+  dbms.security.oidc.okta2.claims.username: "sub"
+  dbms.security.oidc.okta2.claims.groups: "groups"
+  dbms.security.oidc.okta2.params: "client_id=0oa184ehfnvK73JzC698;response_type=code;scope=openid profile email"
+  dbms.security.oidc.okta2.authorization.group_to_role_mapping: "\"neo4j-reader\"=reader;\"neo4j-editor\"=editor;\"neo4j-custom\"=publisher;\"neo4j-architect\"=architect;\"neo4j-admin\"=admin"
+
   # Server-side routing: lb-neo4j-core.yaml is ONE shared LB fronting all 3
   # core pods, so the internal addresses (*.svc.cluster.local) that
   # client-side routing (the neo4j:// default) hands back are unreachable

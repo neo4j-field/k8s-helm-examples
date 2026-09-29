@@ -6,13 +6,14 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
     #service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, 7687
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
-    # TLS termination is DISABLED for now: there is no ACM cert in this account/region
-    # (the ARN below was for AWS account 766746056086, a DIFFERENT account than the
-    # one this cluster runs in -- it will not validate here). The http listener below
-    # is plain port 80 -> 7474 (no encryption) until a real cert exists in this account.
-    # To re-enable TLS termination at the LB: request/obtain an ACM cert ARN in this
-    # region/account, change the http port below back to 443, then uncomment the next
-    # two lines with that ARN filled in.
+    # TLS is terminated at Neo4j itself (see the ssl.https block in
+    # hybrid-neo4j-gds.yaml, same self-signed neo4j-bolt-cert reused for
+    # HTTPS as for Bolt), not at the LB -- this stays a pure TCP passthrough
+    # to Neo4j's HTTPS port 7473. No ACM cert/annotation needed here for
+    # that; the lines below are only for the *alternate* path of
+    # terminating TLS at the LB instead, which needs a real ACM cert in
+    # this account/region (the ARN below was for a different account,
+    # 766746056086, and won't validate here anyway).
     #service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
     #service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-2:766746056086:certificate/b95f3f0e-ea19-41ed-b795-7ad79efc3098
     #service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
@@ -30,10 +31,10 @@ spec:
     port: 7687
     protocol: TCP
     targetPort: 7687
-  - name: http
-    port: 80
+  - name: https
+    port: 443
     protocol: TCP
-    targetPort: 7474
+    targetPort: 7473
   selector:
     app: neo4j-hybrid-cluster
     helm.neo4j.com/instance: neo4j-gds-1

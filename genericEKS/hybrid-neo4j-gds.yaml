@@ -23,6 +23,15 @@ ssl:
       secretName: neo4j-bolt-cert
     publicCertificate:
       secretName: neo4j-bolt-cert
+  # HTTPS on the same self-signed cert/key as Bolt above -- see the
+  # matching comment in neo4j-core.yaml. Must be present here too since
+  # GDS secondaries also sit behind their own HTTPS-terminated LB
+  # (lb1-gds.yaml/lb2-gds.yaml, port 443 -> 7473).
+  https:
+    privateKey:
+      secretName: neo4j-bolt-cert
+    publicCertificate:
+      secretName: neo4j-bolt-cert
 
 neo4j:
   # Must match neo4j-core.yaml's neo4j.name: this sets the "app" label
@@ -85,6 +94,40 @@ config:
   dbms.security.keystore.path: /keystore/neo4j.keystore
   dbms.security.keystore.password: changeit
   dbms.security.key.name: neo4j-key
+
+  # Okta SSO (OIDC) + native auth -- must match neo4j-core.yaml's block
+  # exactly. Auth provider config is DBMS-wide, not per-server; a mismatch
+  # here would make this GDS secondary authenticate/authorize users
+  # differently than the core members it's clustered with.
+  dbms.security.authentication_providers: "oidc-okta1,oidc-okta2,native"
+  dbms.security.authorization_providers: "oidc-okta1,oidc-okta2,native"
+  # Logs successful logins (not just failures, which are always logged) to
+  # logs/security.log -- includes username, source provider, and role
+  # granted, useful for confirming which oidc-okta1/oidc-okta2/native path
+  # a given login actually resolved through.
+  dbms.security.log_successful_authentication: "true"
+  dbms.security.allow_oidc_credential_forwarding_enabled: "true"
+
+  # okta1 == the original integrator-3923174 org.
+  dbms.security.oidc.okta1.display_name: "Okta1"
+  dbms.security.oidc.okta1.auth_flow: "pkce"
+  dbms.security.oidc.okta1.well_known_discovery_uri: "https://integrator-3923174.okta.com/oauth2/default/.well-known/oauth-authorization-server"
+  dbms.security.oidc.okta1.audience: "api://default"
+  dbms.security.oidc.okta1.claims.username: "sub"
+  dbms.security.oidc.okta1.claims.groups: "groups"
+  dbms.security.oidc.okta1.params: "client_id=0oa1802xy03ToNXkE698;response_type=code;scope=openid profile email"
+  dbms.security.oidc.okta1.authorization.group_to_role_mapping: "\"dbadmin\"=admin"
+
+  # okta2 == the integrator-1256732 dev org.
+  dbms.security.oidc.okta2.display_name: "Okta2"
+  dbms.security.oidc.okta2.auth_flow: "pkce"
+  dbms.security.oidc.okta2.well_known_discovery_uri: "https://integrator-1256732.okta.com/oauth2/default/.well-known/oauth-authorization-server"
+  dbms.security.oidc.okta2.audience: "api://default"
+  dbms.security.oidc.okta2.claims.username: "sub"
+  dbms.security.oidc.okta2.claims.groups: "groups"
+  dbms.security.oidc.okta2.params: "client_id=0oa184ehfnvK73JzC698;response_type=code;scope=openid profile email"
+  dbms.security.oidc.okta2.authorization.group_to_role_mapping: "\"neo4j-reader\"=reader;\"neo4j-editor\"=editor;\"neo4j-custom\"=publisher;\"neo4j-architect\"=architect;\"neo4j-admin\"=admin"
+
   # Server-side routing, same reasoning/setting as neo4j-core.yaml -- must be
   # enabled cluster-wide (every server in the DBMS topology, not just core),
   # or a query that gets internally forwarded to/through a GDS secondary has
