@@ -1,0 +1,4 @@
+# Real GDS/Bloom license files, created locally by README.md's "Real licenses" step -- never
+# tracked. The licenses/ directory itself stays tracked (via .gitkeep), matching
+# genericEKS/.gitignore's identical licenses/*.license convention.
+licenses/*.license

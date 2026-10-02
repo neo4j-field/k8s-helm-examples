@@ -1,0 +1,17 @@
+# Same intent as genericEKS/create_storageclass.sh's gp3highiops class in the Helm-based example, but the
+# operator quickstart's own minimal gp3 class (no iops/throughput overrides) — see the "Give the
+# cluster a working StorageClass" step in the operator's AWS EKS guide. EKS ships no default
+# StorageClass and no CSI driver, so without this every Neo4j PVC sits Pending forever. Requires the
+# EBS CSI driver addon + IAM role (see README.md step 1).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true

@@ -1,0 +1,80 @@
+# Operator equivalent of genericEKS/'s hybrid GDS cluster (neo4j-core.yaml + hybrid-neo4j-gds.yaml
+# + lb-neo4j-core.yaml): 3 core PRIMARY members plus a GDS/Bloom secondary pool, one CR instead of
+# two Helm releases plus hand-written LB Service manifests. See README.md for the full apply
+# order, including creating the gds-license/bloom-license Secrets this CR references before
+# applying this file.
+#
+# Read README.md's "How this differs from the Helm example" before relying on this for GDS routing:
+# the operator publishes a single client Service in front of the primaries (routing driver traffic),
+# not one LoadBalancer per GDS secondary like genericEKS/lb1-gds.yaml / lb2-gds.yaml — the
+# non-routing, direct-to-secondary Bolt connection that genericEKS/gds-composite-routing-notes.md
+# describes isn't reproduced by this CR as-is.
+apiVersion: neo4j.com/v1
+kind: Neo4j
+metadata:
+  name: jhair-cluster
+spec:
+  edition: enterprise
+  version: "2026.05.0"
+  license:
+    # Records that you hold a Neo4j Enterprise license for this image - required for Cluster mode,
+    # backup and metrics (see genericEKS/CLAUDE.md's licensing notes for the Helm-chart equivalent).
+    accept: "yes"
+
+  topology:
+    mode: Cluster
+    primaries:
+      members: 3
+    secondaries:
+      analytics:
+        members: 1
+        plugins: [gds, bloom]
+
+  pluginDefinitions:
+    gds:
+      licenseSecretRef: gds-license
+    bloom:
+      licenseSecretRef: bloom-license
+
+  storage:
+    volumes:
+      data:
+        mode: Dynamic
+        dynamic:
+          size: 10Gi
+          storageClassName: gp3
+
+  connectivity:
+    listeners:
+      bolt: 7687
+      http: 7474
+    service:
+      type: LoadBalancer
+      expose: [bolt, http]
+      # Front HTTP on 80 at the LB while Neo4j itself keeps listening on 7474 (listeners.http
+      # above) - this only remaps the Service's external port, not the pod's; targetPort stays
+      # 7474, so this works regardless of what listeners.http is set to.
+      ports:
+        http: 80
+      # Required by admission whenever type is LoadBalancer. "10.0.0.0/8" below is a PRIVATE
+      # RFC1918 range (VPC-internal) - the ELB gets a public DNS name regardless, but its security
+      # group only allows inbound traffic from this CIDR, so anything outside the VPC (your laptop,
+      # most likely) is silently dropped at the LB - the symptom is "it's up but I can't reach it
+      # from outside EKS" with no error anywhere. Replace it with your actual public IP/32 (find it
+      # with `curl https://checkip.amazonaws.com`) or office/VPN CIDR before relying on this from
+      # outside the cluster. This is the one AWS-specific analogue of
+      # genericEKS/lb-neo4j-core.yaml's NLB annotations; TLS termination (ACM cert,
+      # ssl-negotiation-policy) is a separate concern - see
+      # docs/user-guide/03-neo4j/05-security.md#transport-security in the operator repo for the
+      # spec.trust.certificates fields that replace those Service annotations.
+      loadBalancerSourceRanges: ["10.0.0.0/8"]
+
+  auth:
+    generatePassword: true
+
+  trust:
+    # Cluster admission needs an admin Bolt path for the operator itself (reason NEO-004): either
+    # this plaintext opt-in, or spec.trust.certificates.bolt for a verified TLS connection. Fine for
+    # this reference example; tighten before using this as a starting point for anything real.
+    enabled: false
+    insecureAdminConnection: true
